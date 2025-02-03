@@ -1,5 +1,6 @@
 #[allow(unused_imports)]
 use std::io::{self, Write};
+use std::process;
 
 fn main() {
     loop {
@@ -13,7 +14,11 @@ fn main() {
         let mut input = String::new();
         stdin.read_line(&mut input).unwrap();
 
-        let mut command = input.trim();
+        let command = input.trim();
+
+        if command.starts_with("exit") {
+            break;
+        }
 
         match command {
             _ => println!("{command}: command not found"),
