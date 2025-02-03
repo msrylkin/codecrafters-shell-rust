@@ -1,6 +1,5 @@
 #[allow(unused_imports)]
 use std::io::{self, Write};
-use std::process;
 
 fn main() {
     loop {
@@ -14,17 +13,18 @@ fn main() {
         let mut input = String::new();
         stdin.read_line(&mut input).unwrap();
 
-        let command = input.trim();
-
-        let asd: Vec<&str> = input.split_whitespace().collect();
-
-        println!("{asd:?}");
-        if command.starts_with("exit") {
-            break;
-        }
+        let mut iter = input.split_whitespace();
+        let command = iter.next();
 
         match command {
-            _ => println!("{command}: command not found"),
+            None => continue,
+            Some("echo") => echo(&iter.collect()),
+            Some("exit") => std::process::exit(0), 
+            Some(cmd) => println!("{cmd}: command not found"),
         };
     }
+}
+
+fn echo(args: &Vec<&str>) {
+    println!("{}", args.join(" "));
 }
