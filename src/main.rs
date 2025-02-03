@@ -16,6 +16,9 @@ fn main() {
 
         let command = input.trim();
 
+        let asd: Vec<&str> = input.split_whitespace().collect();
+
+        println!("{asd:?}");
         if command.starts_with("exit") {
             break;
         }
