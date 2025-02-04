@@ -6,7 +6,8 @@ enum CommandType {
     Echo { text: Vec<String> },
     Exit { exit_code: i32 },
     Type { arg: String },
-    Custom { cmd: String, args: Vec<String> }
+    Custom { cmd: String, args: Vec<String> },
+    Pwd,
 }
 
 fn main() {
@@ -24,7 +25,7 @@ fn main() {
         let mut iter = input.trim().split(' ');
         let command = iter.next();
 
-        let command_object = match command {
+        let command = match command {
             None => continue,
             Some(cmd) => create_command(
                 cmd.to_string(),
@@ -32,17 +33,18 @@ fn main() {
             )
         };
 
-        if let Some(command) = command_object {
-            match command {
-                CommandType::Exit { exit_code  } => exit(exit_code),
-                CommandType::Echo { text } => echo(&text),
-                CommandType::Type { arg } => type_cmd(&arg),
-                CommandType::Custom { cmd, args } => custom_cmd(&cmd, &args),
-            }
-        } else {
-            println!("{}: command not found", {command.unwrap()});
+        match command {
+            CommandType::Exit { exit_code  } => exit(exit_code),
+            CommandType::Echo { text } => echo(&text),
+            CommandType::Type { arg } => type_cmd(&arg),
+            CommandType::Custom { cmd, args } => custom_cmd(&cmd, &args),
+            CommandType::Pwd => pwd(),
         }
     }
+}
+
+fn pwd() {
+    println!("{}", env::current_dir().unwrap().to_str().unwrap());
 }
 
 fn custom_cmd(cmd: &str, args: &[String]) {
@@ -74,14 +76,14 @@ fn echo(args: &[String]) {
 fn type_cmd(cmd: &str) {
     if !cmd.is_empty() {
         match create_command(cmd.to_string(), vec![]) {
-            None | Some(CommandType::Custom { cmd: _, args: _ }) => { 
+            CommandType::Custom { cmd: _, args: _ } => { 
                 if let Some(dir) = check_path_for(cmd) {
                     println!("{} is {}/{}", cmd, dir, cmd)
                 } else {
                     println!("{cmd}: not found");
                 }
             },
-            Some(_) => println!("{cmd} is a shell builtin"),
+            _ => println!("{cmd} is a shell builtin"),
         }
     }
 }
@@ -119,20 +121,19 @@ fn exit(code: i32) {
     std::process::exit(code);
 }
 
-fn create_command(name: String, args: Vec<String>) -> Option<CommandType> {
+fn create_command(name: String, args: Vec<String>) -> CommandType {
     match name.as_str() {
-        "echo" => Some(CommandType::Echo { text: args }),
-        "exit" => Some(CommandType::Exit {
+        "echo" => CommandType::Echo { text: args },
+        "exit" => CommandType::Exit {
             exit_code: 0,
-        }),
-        "type" => Some(CommandType::Type {
+        },
+        "type" => CommandType::Type {
             arg: args.first().map(String::from).unwrap_or(String::from("")),
-        }),
-        cmd => {
-            Some(CommandType::Custom {
-                cmd: cmd.to_string(),
-                args: args.iter().map(String::from).collect(),
-            })
+        },
+        "pwd" => CommandType::Pwd,
+        cmd => CommandType::Custom {
+            cmd: cmd.to_string(),
+            args: args.iter().map(String::from).collect(),
         },
     }
 }
