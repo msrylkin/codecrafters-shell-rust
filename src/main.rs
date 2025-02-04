@@ -1,6 +1,6 @@
 #[allow(unused_imports)]
 use std::io::{self, Write};
-use std::{env, fs, os::unix::process::CommandExt, path::Path, process::{Command, Stdio}};
+use std::{env, fs, os::unix::process::CommandExt, path::{Path, PathBuf}, process::{Command, Stdio}};
 
 enum CommandType {
     Echo { text: Vec<String> },
@@ -49,9 +49,11 @@ fn pwd() {
     println!("{}", env::current_dir().unwrap().to_str().unwrap());
 }
 
-fn cd(path: &str) {
-    if env::set_current_dir(Path::new(path)).is_err() {
-        println!("cd: {path}: No such file or directory");
+fn cd(path_str: &str) {
+    let path = if path_str.starts_with('.') || path_str == "~" { PathBuf::from(path_str) } else { PathBuf::from(path_str) };
+
+    if env::set_current_dir(path).is_err() {
+        println!("cd: {}: No such file or directory", path_str);
     }
 }
 
