@@ -1,6 +1,6 @@
 #[allow(unused_imports)]
 use std::io::{self, Write};
-use std::{env, fs, os::unix::process::CommandExt, process::{Command, Stdio}};
+use std::{env, fs, os::unix::process::CommandExt, path::Path, process::{Command, Stdio}};
 
 enum CommandType {
     Echo { text: Vec<String> },
@@ -8,6 +8,7 @@ enum CommandType {
     Type { arg: String },
     Custom { cmd: String, args: Vec<String> },
     Pwd,
+    Cd { path: String },
 }
 
 fn main() {
@@ -39,12 +40,19 @@ fn main() {
             CommandType::Type { arg } => type_cmd(&arg),
             CommandType::Custom { cmd, args } => custom_cmd(&cmd, &args),
             CommandType::Pwd => pwd(),
+            CommandType::Cd { path } => cd(&path),
         }
     }
 }
 
 fn pwd() {
     println!("{}", env::current_dir().unwrap().to_str().unwrap());
+}
+
+fn cd(path: &str) {
+    if env::set_current_dir(Path::new(path)).is_err() {
+        println!("cd: {path}: No such file or directory");
+    }
 }
 
 fn custom_cmd(cmd: &str, args: &[String]) {
@@ -131,6 +139,7 @@ fn create_command(name: String, args: Vec<String>) -> CommandType {
             arg: args.first().map(String::from).unwrap_or(String::from("")),
         },
         "pwd" => CommandType::Pwd,
+        "cd" => CommandType::Cd { path: args.first().map(String::from).unwrap_or(String::from("")) },
         cmd => CommandType::Custom {
             cmd: cmd.to_string(),
             args: args.iter().map(String::from).collect(),
