@@ -1,28 +1,12 @@
 #[allow(unused_imports)]
 use std::io::{self, Write};
+use std::{env, fs};
 
 enum CommandType {
     Echo { text: Vec<String> },
     Exit { exit_code: i32 },
     Type { arg: String },
 }
-
-// struct Command {
-//     name: String,
-//     args: Vec<String>,
-// }
-
-// trait Executable {
-//     fn execute(args: &Vec<String>);
-// }
-
-// impl Executable for Command {
-    
-// }
-
-// enum Command {
-//     Echo { name: String, args: Vec<String> },
-// }
 
 fn main() {
     loop {
@@ -38,22 +22,6 @@ fn main() {
 
         let mut iter = input.trim().split(' ');
         let command = iter.next();
-
-        // if command.is_none() {
-        //     continue;
-        // }
-
-        // let command = Command {
-        //     name: command.unwrap().to_string(),
-        //     args: iter.map(|s| s.to_string()).collect(),
-        // };
-
-        // match command.name.as_str() {
-        //     "echo" => echo(&iter.collect()),
-        //     "exit" => std::process::exit(0),
-        //     "type" => type_cmd(&iter.collect()),
-        //     cmd => println!("{cmd}: command not found"),
-        // }
 
         let command_object = match command {
             None => continue,
@@ -72,24 +40,6 @@ fn main() {
         } else {
             println!("{}: command not found", {command.unwrap()});
         }
-        // if command_object.is_none() {
-        //     println!("{}: command not found", {command.unwrap()});
-        //     return;
-        // }
-
-        // let command = match command {
-        //     None => continue,
-        //     // Some("echo") => echo(&iter.collect()),
-        //     Some("echo") => CommandType::Echo { text: iter.map(String::from).collect() },
-        //     // Some("exit") => std::process::exit(0),
-        //     Some("exit") => CommandType::Exit {
-        //         exit_code: 0,
-        //     },
-        //     Some("type") => CommandType::Type {
-        //         arg: iter.next().unwrap_or_default().to_string(),
-        //     },
-        //     Some(cmd) => println!("{cmd}: command not found"),
-        // };
     }
 }
 
@@ -101,9 +51,44 @@ fn type_cmd(cmd: &str) {
     if !cmd.is_empty() {
         match create_command(cmd.to_string(), vec![]) {
             Some(_) => println!("{cmd} is a shell builtin"),
-            None => println!("{cmd}: not found"), 
+            None => { 
+                if let Some(dir) = check_path_for(cmd) {
+                    println!("{} is {}/{}", cmd, dir, cmd)
+                } else {
+                    println!("{cmd}: not found");
+                }
+            }, 
         }
     }
+}
+
+fn check_path_for(cmd: &str) -> Option<String> {
+    match env::var("PATH") {
+        Ok(path) => path
+            .split(':')
+            .find(|dir| {
+                check_dir_for_cmd(dir, cmd).unwrap_or(false)
+            })
+            .map(|dir| dir.to_string()),
+        Err(_) => None,
+    }
+}
+
+fn check_dir_for_cmd(dir: &str, cmd: &str) -> Result<bool, std::io::Error> {
+    let dir = fs::read_dir(dir)?;
+    // println!("{:?}", dir);
+
+    for path  in dir {
+        if let Ok(path_item) = path {
+            if let Some(last) = path_item.path().iter().last() {
+                if last == cmd {
+                    return Ok(true);
+                }
+            }
+        } 
+    }
+
+    Ok(false)
 }
 
 fn exit(code: i32) {
