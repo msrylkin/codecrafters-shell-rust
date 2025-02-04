@@ -50,7 +50,7 @@ fn pwd() {
 }
 
 fn cd(path_str: &str) {
-    let path = if path_str.starts_with('.') || path_str == "~" { PathBuf::from(path_str) } else { PathBuf::from(path_str) };
+    let path = if path_str == "~" { PathBuf::from(env::var("HOME").unwrap()) } else { PathBuf::from(path_str) };
 
     if env::set_current_dir(path).is_err() {
         println!("cd: {}: No such file or directory", path_str);
