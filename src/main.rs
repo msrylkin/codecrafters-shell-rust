@@ -1,11 +1,12 @@
 #[allow(unused_imports)]
 use std::io::{self, Write};
-use std::{env, fs};
+use std::{env, fs, os::unix::process::CommandExt, process::{Command, Stdio}};
 
 enum CommandType {
     Echo { text: Vec<String> },
     Exit { exit_code: i32 },
     Type { arg: String },
+    Custom { cmd: String, args: Vec<String> }
 }
 
 fn main() {
@@ -36,11 +37,28 @@ fn main() {
                 CommandType::Exit { exit_code  } => exit(exit_code),
                 CommandType::Echo { text } => echo(&text),
                 CommandType::Type { arg } => type_cmd(&arg),
+                CommandType::Custom { cmd, args } => custom_cmd(&cmd, &args),
             }
         } else {
             println!("{}: command not found", {command.unwrap()});
         }
     }
+}
+
+fn custom_cmd(cmd: &str, args: &[String]) {
+    Command::new(cmd)
+        .args(args)
+        .stdout(Stdio::inherit())
+        .spawn()
+        .unwrap()
+        .wait()
+        .unwrap();
+
+    // println!("{}", res);
+
+    // Command::new(cmd)
+    //     .args(args)
+    //     .exec();
 }
 
 fn echo(args: &[String]) {
@@ -97,16 +115,18 @@ fn exit(code: i32) {
 
 fn create_command(name: String, args: Vec<String>) -> Option<CommandType> {
     match name.as_str() {
-        // Some("echo") => echo(&iter.collect()),
         "echo" => Some(CommandType::Echo { text: args }),
-        // Some("exit") => std::process::exit(0),
         "exit" => Some(CommandType::Exit {
             exit_code: 0,
         }),
         "type" => Some(CommandType::Type {
             arg: args.first().map(String::from).unwrap_or(String::from("")),
         }),
-        // cmd => println!("{cmd}: command not found"),
-        _ => None,
+        cmd => {
+            Some(CommandType::Custom {
+                cmd: cmd.to_string(),
+                args: args.iter().map(String::from).collect(),
+            })
+        },
     }
 }
