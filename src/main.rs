@@ -46,13 +46,19 @@ fn main() {
 }
 
 fn custom_cmd(cmd: &str, args: &[String]) {
-    Command::new(cmd)
+    let res = Command::new(cmd)
         .args(args)
         .stdout(Stdio::inherit())
-        .spawn()
-        .unwrap()
-        .wait()
-        .unwrap();
+        .spawn();
+
+    match res {
+        Ok(mut child) => {
+            child.wait().unwrap();
+        },
+        Err(_) => {
+            println!("{}: command not found", {cmd});
+        }
+    }
 
     // println!("{}", res);
 
@@ -68,14 +74,14 @@ fn echo(args: &[String]) {
 fn type_cmd(cmd: &str) {
     if !cmd.is_empty() {
         match create_command(cmd.to_string(), vec![]) {
-            Some(_) => println!("{cmd} is a shell builtin"),
-            None => { 
+            None | Some(CommandType::Custom { cmd: _, args: _ }) => { 
                 if let Some(dir) = check_path_for(cmd) {
                     println!("{} is {}/{}", cmd, dir, cmd)
                 } else {
                     println!("{cmd}: not found");
                 }
-            }, 
+            },
+            Some(_) => println!("{cmd} is a shell builtin"),
         }
     }
 }
