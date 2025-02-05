@@ -45,13 +45,13 @@ fn main() {
                 //         args_str = e.to_string();
                 //     }
                 // }
-                let mut in_quotes = false;
+                let mut quote = None;
                 let mut args_vec: Vec<String> = vec![];
                 let mut last_str = String::new();
                 args_str.chars().for_each(|c| {
-                    if c == '\'' {
-                        in_quotes = !in_quotes;
-                    } else if in_quotes || !c.is_whitespace() {
+                    if (c == '\'' || c == '"') && (quote.is_none() || quote.unwrap() == c) {
+                        quote = if quote.is_none() { Some(c) } else { None };
+                    } else if quote.is_some() || !c.is_whitespace() {
                         last_str.push(c);
                     } else if !last_str.is_empty() {
                         args_vec.push(last_str.clone());
