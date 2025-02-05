@@ -1,6 +1,6 @@
 #[allow(unused_imports)]
 use std::io::{self, Write};
-use std::{env, fs, os::unix::process::CommandExt, path::{Path, PathBuf}, process::{Command, Stdio}};
+use std::{env, fs, iter, os::unix::process::CommandExt, path::{Path, PathBuf}, process::{Command, Stdio}};
 
 enum CommandType {
     Echo { text: Vec<String> },
@@ -22,16 +22,52 @@ fn main() {
 
         let mut input = String::new();
         stdin.read_line(&mut input).unwrap();
+        // input.push(' ');
+        // println!("'{input}'");
+        // let mut iter = input.trim().split(' ');
+        // let command = iter.next();
 
-        let mut iter = input.trim().split(' ');
-        let command = iter.next();
-
-        let command = match command {
+        let command = match input.split_once(char::is_whitespace) {
             None => continue,
-            Some(cmd) => create_command(
-                cmd.to_string(),
-                iter.map(String::from).collect(),
-            )
+            Some((cmd, args_str)) => {
+                // println!("{}\n{}", cmd, args_str);
+                // let mut args_str = args_str.to_string();
+                // let mut args_vec: Vec<String> = vec![];
+
+                // while !args_str.is_empty() {
+                //     if args_str.starts_with('\'') {
+                //         let (s, e) = args_str.split_once('\'').unwrap();
+                //         args_vec.push(s.to_string());
+                //         args_str = e.to_string();
+                //     } else {
+                //         let (s, e) = args_str.split_once(' ').unwrap();
+                //         args_vec.push(s.to_string());
+                //         args_str = e.to_string();
+                //     }
+                // }
+                let mut in_quotes = false;
+                let mut args_vec: Vec<String> = vec![];
+                let mut last_str = String::new();
+                args_str.chars().for_each(|c| {
+                    if c == '\'' {
+                        in_quotes = !in_quotes;
+                    } else if in_quotes || !c.is_whitespace() {
+                        last_str.push(c);
+                    } else if !last_str.is_empty() {
+                        args_vec.push(last_str.clone());
+                        last_str = String::new();
+                    }
+                });
+                if !last_str.is_empty() {
+                    args_vec.push(last_str);
+                }
+                // println!("{} {} - {:?}", cmd, args_str, args_vec);
+
+                create_command(
+                    cmd.to_string(),
+                    args_vec,
+                )
+            },
         };
 
         match command {
