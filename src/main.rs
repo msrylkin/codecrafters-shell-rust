@@ -30,27 +30,21 @@ fn main() {
         let command = match input.split_once(char::is_whitespace) {
             None => continue,
             Some((cmd, args_str)) => {
-                // println!("{}\n{}", cmd, args_str);
-                // let mut args_str = args_str.to_string();
-                // let mut args_vec: Vec<String> = vec![];
-
-                // while !args_str.is_empty() {
-                //     if args_str.starts_with('\'') {
-                //         let (s, e) = args_str.split_once('\'').unwrap();
-                //         args_vec.push(s.to_string());
-                //         args_str = e.to_string();
-                //     } else {
-                //         let (s, e) = args_str.split_once(' ').unwrap();
-                //         args_vec.push(s.to_string());
-                //         args_str = e.to_string();
-                //     }
-                // }
                 let mut quote = None;
+                let mut preserve_next = false;
                 let mut args_vec: Vec<String> = vec![];
                 let mut last_str = String::new();
+
                 args_str.chars().for_each(|c| {
-                    if (c == '\'' || c == '"') && (quote.is_none() || quote.unwrap() == c) {
-                        quote = if quote.is_none() { Some(c) } else { None };
+                    if preserve_next {
+                        last_str.push(c);
+                        preserve_next = false;
+                    } else if is_quote(c) && quote.is_some_and(|x| x == c) {
+                        quote = None;
+                    } else if is_quote(c) && quote.is_none() {
+                        quote = Some(c);
+                    } else if c == '\\' && quote.is_none() {
+                        preserve_next = true;
                     } else if quote.is_some() || !c.is_whitespace() {
                         last_str.push(c);
                     } else if !last_str.is_empty() {
@@ -58,6 +52,7 @@ fn main() {
                         last_str = String::new();
                     }
                 });
+
                 if !last_str.is_empty() {
                     args_vec.push(last_str);
                 }
@@ -83,6 +78,10 @@ fn main() {
 
 fn pwd() {
     println!("{}", env::current_dir().unwrap().to_str().unwrap());
+}
+
+fn is_quote(c: char) -> bool {
+    c == '\'' || c == '"'
 }
 
 fn cd(path_str: &str) {
