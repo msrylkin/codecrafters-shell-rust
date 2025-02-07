@@ -217,6 +217,18 @@ fn main() {
         match args_vec.last_chunk::<2>() {
             Some([redir, redir_file])  => {
                 match redir.as_str() {
+                    "2>>" => try_exec_command(
+                        command,
+                        &command_args[..command_args.len() - 2],
+                        io::stdout(),
+                        Box::new(
+                            OpenOptions::new()
+                                .create(true)
+                                .append(true)
+                                .open(redir_file)
+                                .unwrap()
+                        ) as Box<dyn Write>,
+                    ),
                     ">>" | "1>>" => try_exec_command(
                         command,
                         &command_args[..command_args.len() - 2],
