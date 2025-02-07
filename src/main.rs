@@ -233,7 +233,9 @@ fn main() {
                                 io::stdout().execute(Print("t ")).unwrap();
                                 input.push_str("t ");
                             },
-                            _ => {},
+                            _ => {
+                                io::stdout().execute(Print("\x07")).unwrap();
+                            },
                         }
                     }
                     _ => {}
