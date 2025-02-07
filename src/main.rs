@@ -1,6 +1,6 @@
 #[allow(unused_imports)]
 use std::io::{self, Write};
-use std::{env, fs::{self, File}, io::BufWriter, iter, os::{fd::FromRawFd, unix::process::CommandExt}, path::{Path, PathBuf}, process::{Command, Stdio}};
+use std::{env, fs::{self, File, OpenOptions}, io::BufWriter, iter, os::{fd::FromRawFd, unix::process::CommandExt}, path::{Path, PathBuf}, process::{Command, Stdio}};
 
 enum CommandType {
     Echo { text: Vec<String> },
@@ -217,6 +217,18 @@ fn main() {
         match args_vec.last_chunk::<2>() {
             Some([redir, redir_file])  => {
                 match redir.as_str() {
+                    ">>" | "1>>" => try_exec_command(
+                        command,
+                        &command_args[..command_args.len() - 2],
+                        Box::new(
+                                OpenOptions::new()
+                                    .create(true)
+                                    .append(true)
+                                    .open(redir_file)
+                                    .unwrap()
+                        ) as Box<dyn Write>,
+                        io::stderr(),
+                    ),
                     "2>" => try_exec_command(
                         command,
                         &command_args[..command_args.len() - 2],
