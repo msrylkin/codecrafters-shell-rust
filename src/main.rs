@@ -1,6 +1,6 @@
 #[allow(unused_imports)]
 use std::io::{self, Write};
-use std::{env, fs, iter, os::unix::process::CommandExt, path::{Path, PathBuf}, process::{Command, Stdio}};
+use std::{env, fs::{self, File}, io::BufWriter, iter, os::{fd::FromRawFd, unix::process::CommandExt}, path::{Path, PathBuf}, process::{Command, Stdio}};
 
 enum CommandType {
     Echo { text: Vec<String> },
@@ -210,11 +210,39 @@ fn main() {
         let mut args_vec_iter = args_vec.iter();
 
         let command = args_vec_iter.next();
+        let command_args: Vec<String> = args_vec_iter.map(|x| x.to_string()).collect();
+        // let iostd = io::stdout();
+        // let mut out_writer: Box<dyn Write> = BufWriter::new(inner)
 
-        let command = match command {
-            None => continue,
-            Some(cmd) => create_command(cmd.clone(), args_vec_iter.map(|x| x.to_string()).collect())
+        match args_vec.last_chunk::<2>() {
+            Some([redir, redir_file])  => {
+                match redir.as_str() {
+                    "1>" | ">" => try_exec_command(
+                        command,
+                        &command_args[..command_args.len() - 2],
+                        // Stdio::from(File::create(redir_file).unwrap())
+                        Box::new(File::create(redir_file).unwrap()) as Box<dyn Write>,
+                    ),
+                    _ => try_exec_command(
+                        command,
+                        &command_args,
+                        // Stdio::inherit(),
+                        io::stdout(),
+                    ),
+                }
+            },
+            None => try_exec_command(
+                command,
+                &command_args,
+                // Stdio::inherit(),
+                io::stdout(),
+            ),  
         };
+
+        // let command = match command {
+        //     None => continue,
+        //     Some(cmd) => create_command(cmd.clone(), args_vec_iter.map(|x| x.to_string()).collect())
+        // };
 
         // let command = match input.split_once(char::is_whitespace) {
         //     None => continue,
@@ -236,15 +264,37 @@ fn main() {
         //     },
         // };
 
-        match command {
-            CommandType::Exit { exit_code  } => exit(exit_code),
-            CommandType::Echo { text } => echo(&text),
-            CommandType::Type { arg } => type_cmd(&arg),
-            CommandType::Custom { cmd, args } => custom_cmd(&cmd, &args),
-            CommandType::Pwd => pwd(),
-            CommandType::Cd { path } => cd(&path),
-        }
+        // match command {
+        //     CommandType::Exit { exit_code  } => exit(exit_code),
+        //     CommandType::Echo { text } => echo(&text),
+        //     CommandType::Type { arg } => type_cmd(&arg),
+        //     CommandType::Custom { cmd, args } => custom_cmd(&cmd, &args),
+        //     CommandType::Pwd => pwd(),
+        //     CommandType::Cd { path } => cd(&path),
+        // }
     }
+}
+
+fn try_exec_command(
+    command: Option<&String>,
+    args: &[String],
+    out: impl Write,
+) {
+    // let mut args_vec_iter = args.iter();
+    let command = match command {
+        None => return,
+        // Some(cmd) => create_command(cmd.clone(), args_vec_iter.map(|x| x.to_string()).collect())
+        Some(cmd) => create_command(cmd.to_string(), args)
+    };
+
+    match command {
+        CommandType::Exit { exit_code  } => exit(exit_code),
+        CommandType::Echo { text } => echo(&text, out),
+        CommandType::Type { arg } => type_cmd(&arg),
+        CommandType::Custom { cmd, args } => custom_cmd(&cmd, &args, out),
+        CommandType::Pwd => pwd(),
+        CommandType::Cd { path } => cd(&path),
+    };
 }
 
 fn pwd() {
@@ -267,15 +317,16 @@ fn cd(path_str: &str) {
     }
 }
 
-fn custom_cmd(cmd: &str, args: &[String]) {
+fn custom_cmd(cmd: &str, args: &[String], mut out: impl Write) {
     let res = Command::new(cmd)
         .args(args)
-        .stdout(Stdio::inherit())
+        .stdout(Stdio::piped())
         .spawn();
 
     match res {
-        Ok(mut child) => {
-            child.wait().unwrap();
+        Ok(child) => {
+            let output = child.wait_with_output().unwrap();
+            out.write_all(&output.stdout).unwrap();
         },
         Err(_) => {
             println!("{}: command not found", {cmd});
@@ -289,13 +340,14 @@ fn custom_cmd(cmd: &str, args: &[String]) {
     //     .exec();
 }
 
-fn echo(args: &[String]) {
-    println!("{}", args.join(" "));
+fn echo(args: &[String], mut out: impl Write) {
+    // println!("{}", args.join(" "));
+    writeln!(out, "{}", args.join(" ")).unwrap();
 }
 
 fn type_cmd(cmd: &str) {
     if !cmd.is_empty() {
-        match create_command(cmd.to_string(), vec![]) {
+        match create_command(cmd.to_string(), &[]) {
             CommandType::Custom { cmd: _, args: _ } => { 
                 if let Some(dir) = check_path_for(cmd) {
                     println!("{} is {}/{}", cmd, dir, cmd)
@@ -341,9 +393,9 @@ fn exit(code: i32) {
     std::process::exit(code);
 }
 
-fn create_command(name: String, args: Vec<String>) -> CommandType {
+fn create_command(name: String, args: &[String]) -> CommandType {
     match name.as_str() {
-        "echo" => CommandType::Echo { text: args },
+        "echo" => CommandType::Echo { text: args.iter().map(|x| x.to_string()).collect() },
         "exit" => CommandType::Exit {
             exit_code: 0,
         },
