@@ -1,6 +1,7 @@
 #[allow(unused_imports)]
 use std::io::{self, Write};
-use std::{env, fs::{self, File, OpenOptions}, io::BufWriter, iter, os::{fd::FromRawFd, unix::process::CommandExt}, path::{Path, PathBuf}, process::{Command, Stdio}};
+use crossterm::{event::{self, read, Event, KeyCode, KeyEvent, KeyModifiers}, style::Print, terminal, ExecutableCommand};
+use std::{env, fs::{self, File, OpenOptions}, io::{BufWriter, Read}, iter, os::{fd::FromRawFd, unix::process::CommandExt}, path::{Path, PathBuf}, process::{self, Command, Stdio}};
 
 enum CommandType {
     Echo { text: Vec<String> },
@@ -59,7 +60,6 @@ fn process_char(
         '\\' => process_backslash(handler, state),
         '\'' => process_single_qoute(handler, state),
         '"' => process_double_qoute(handler, state),
-        // '$' => process_dollar(handler, state),
         c if c.is_whitespace() => process_whitespace(c, handler, state),
         c => process_symbol(c, handler, state),
     }
@@ -192,12 +192,57 @@ fn main() {
         // Uncomment this block to pass the first stage
         print!("$ ");
         io::stdout().flush().unwrap();
+        // io::stdout().execute(command)
 
         // Wait for user input
-        let stdin = io::stdin();
+        // let mut stdin = io::stdin();
 
+        // let mut input = String::new();
+        // let mut buf: Vec<u8> = vec![0; 3];
+        // stdin.read_exact(&mut buf).unwrap();
+
+        // println!("{} {:?}", input, buf);
         let mut input = String::new();
-        stdin.read_line(&mut input).unwrap();
+
+        terminal::enable_raw_mode().unwrap();
+
+        loop {
+            if let Event::Key(event) = read().unwrap() {
+                match event.code {
+                    KeyCode::Char('c') if event.modifiers.contains(KeyModifiers::CONTROL) => exit(0),
+                    KeyCode::Char('j') if event.modifiers.contains(KeyModifiers::CONTROL) => {
+                        io::stdout().execute(Print("\r\n")).unwrap();
+                        break;
+                    },
+                    KeyCode::Char(c) => {
+                        io::stdout().execute(Print(c)).unwrap();
+                        input.push(c);
+                    },
+                    KeyCode::Enter => {
+                        // input.push('\n');
+                        io::stdout().execute(Print("\r\n")).unwrap();
+                        break;
+                    },
+                    KeyCode::Tab => {
+                        match input.as_str() {
+                            "ech" => {
+                                io::stdout().execute(Print("o ")).unwrap();
+                                input.push_str("o ");
+                            },
+                            "exi" => {
+                                io::stdout().execute(Print("t ")).unwrap();
+                                input.push_str("t ");
+                            },
+                            _ => {},
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        terminal::disable_raw_mode().unwrap();
+        // println!("res input - \"{}\"", input);
 
         let mut args_state = ArgsState::new();
         let mut char_handler = CharHandler::Unqouted;
@@ -211,8 +256,6 @@ fn main() {
 
         let command = args_vec_iter.next();
         let command_args: Vec<String> = args_vec_iter.map(|x| x.to_string()).collect();
-        // let iostd = io::stdout();
-        // let mut out_writer: Box<dyn Write> = BufWriter::new(inner)
 
         match args_vec.last_chunk::<2>() {
             Some([redir, redir_file])  => {
@@ -250,14 +293,12 @@ fn main() {
                     "1>" | ">" => try_exec_command(
                         command,
                         &command_args[..command_args.len() - 2],
-                        // Stdio::from(File::create(redir_file).unwrap())
                         Box::new(File::create(redir_file).unwrap()) as Box<dyn Write>,
                         io::stderr(),
                     ),
                     _ => try_exec_command(
                         command,
                         &command_args,
-                        // Stdio::inherit(),
                         io::stdout(),
                         io::stderr(),
                     ),
@@ -266,45 +307,10 @@ fn main() {
             None => try_exec_command(
                 command,
                 &command_args,
-                // Stdio::inherit(),
                 io::stdout(),
                 io::stderr(),
             ),  
         };
-
-        // let command = match command {
-        //     None => continue,
-        //     Some(cmd) => create_command(cmd.clone(), args_vec_iter.map(|x| x.to_string()).collect())
-        // };
-
-        // let command = match input.split_once(char::is_whitespace) {
-        //     None => continue,
-        //     Some((cmd, args_str)) => {
-        //         let mut args_state = ArgsState::new();
-        //         let mut char_handler = CharHandler::Unqouted;
-
-        //         args_str.chars().for_each(|c| {
-        //             char_handler = process_char(c, char_handler.clone(), &mut args_state);
-        //         });
-
-        //         let args_vec = args_state.finish();
-        //         // println!("res args: {args_vec:?}");
-
-        //         create_command(
-        //             cmd.to_string(),
-        //             args_vec,
-        //         )
-        //     },
-        // };
-
-        // match command {
-        //     CommandType::Exit { exit_code  } => exit(exit_code),
-        //     CommandType::Echo { text } => echo(&text),
-        //     CommandType::Type { arg } => type_cmd(&arg),
-        //     CommandType::Custom { cmd, args } => custom_cmd(&cmd, &args),
-        //     CommandType::Pwd => pwd(),
-        //     CommandType::Cd { path } => cd(&path),
-        // }
     }
 }
 
@@ -314,10 +320,8 @@ fn try_exec_command(
     out: impl Write,
     err_out: impl Write,
 ) {
-    // let mut args_vec_iter = args.iter();
     let command = match command {
         None => return,
-        // Some(cmd) => create_command(cmd.clone(), args_vec_iter.map(|x| x.to_string()).collect())
         Some(cmd) => create_command(cmd.to_string(), args)
     };
 
@@ -365,19 +369,12 @@ fn custom_cmd(cmd: &str, args: &[String], mut out: impl Write, mut err_out: impl
             err_out.write_all(&output.stderr).unwrap();
         },
         Err(_) => {
-            writeln!(err_out, "{}: command not found", {cmd});
+            writeln!(err_out, "{}: command not found", {cmd}).unwrap();
         }
     }
-
-    // println!("{}", res);
-
-    // Command::new(cmd)
-    //     .args(args)
-    //     .exec();
 }
 
 fn echo(args: &[String], mut out: impl Write) {
-    // println!("{}", args.join(" "));
     writeln!(out, "{}", args.join(" ")).unwrap();
 }
 
@@ -410,7 +407,6 @@ fn check_path_for(cmd: &str) -> Option<String> {
 
 fn check_dir_for_cmd(dir: &str, cmd: &str) -> Result<bool, std::io::Error> {
     let dir = fs::read_dir(dir)?;
-    // println!("{:?}", dir);
 
     for path  in dir {
         if let Ok(path_item) = path {
@@ -426,6 +422,7 @@ fn check_dir_for_cmd(dir: &str, cmd: &str) -> Result<bool, std::io::Error> {
 }
 
 fn exit(code: i32) {
+    terminal::disable_raw_mode().unwrap();
     std::process::exit(code);
 }
 
