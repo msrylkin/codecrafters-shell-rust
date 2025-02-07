@@ -217,17 +217,25 @@ fn main() {
         match args_vec.last_chunk::<2>() {
             Some([redir, redir_file])  => {
                 match redir.as_str() {
+                    "2>" => try_exec_command(
+                        command,
+                        &command_args[..command_args.len() - 2],
+                        io::stdout(),
+                        Box::new(File::create(redir_file).unwrap()) as Box<dyn Write>,
+                    ),
                     "1>" | ">" => try_exec_command(
                         command,
                         &command_args[..command_args.len() - 2],
                         // Stdio::from(File::create(redir_file).unwrap())
                         Box::new(File::create(redir_file).unwrap()) as Box<dyn Write>,
+                        io::stderr(),
                     ),
                     _ => try_exec_command(
                         command,
                         &command_args,
                         // Stdio::inherit(),
                         io::stdout(),
+                        io::stderr(),
                     ),
                 }
             },
@@ -236,6 +244,7 @@ fn main() {
                 &command_args,
                 // Stdio::inherit(),
                 io::stdout(),
+                io::stderr(),
             ),  
         };
 
@@ -279,6 +288,7 @@ fn try_exec_command(
     command: Option<&String>,
     args: &[String],
     out: impl Write,
+    err_out: impl Write,
 ) {
     // let mut args_vec_iter = args.iter();
     let command = match command {
@@ -291,7 +301,7 @@ fn try_exec_command(
         CommandType::Exit { exit_code  } => exit(exit_code),
         CommandType::Echo { text } => echo(&text, out),
         CommandType::Type { arg } => type_cmd(&arg),
-        CommandType::Custom { cmd, args } => custom_cmd(&cmd, &args, out),
+        CommandType::Custom { cmd, args } => custom_cmd(&cmd, &args, out, err_out),
         CommandType::Pwd => pwd(),
         CommandType::Cd { path } => cd(&path),
     };
@@ -317,19 +327,21 @@ fn cd(path_str: &str) {
     }
 }
 
-fn custom_cmd(cmd: &str, args: &[String], mut out: impl Write) {
+fn custom_cmd(cmd: &str, args: &[String], mut out: impl Write, mut err_out: impl Write) {
     let res = Command::new(cmd)
         .args(args)
         .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
         .spawn();
 
     match res {
         Ok(child) => {
             let output = child.wait_with_output().unwrap();
             out.write_all(&output.stdout).unwrap();
+            err_out.write_all(&output.stderr).unwrap();
         },
         Err(_) => {
-            println!("{}: command not found", {cmd});
+            writeln!(err_out, "{}: command not found", {cmd});
         }
     }
 
