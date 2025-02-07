@@ -13,10 +13,10 @@ enum CommandType {
 
 #[derive(Clone)]
 enum CharHandler {
-    SingleQouteHandler,
-    DoubleQouteHandler,
-    UnqoutedHandler,
-    PreserveHandler(Box<CharHandler>),
+    SingleQoute,
+    DoubleQoute,
+    Unqouted,
+    Preserve(Box<CharHandler>),
 }
 
 struct ArgsState {
@@ -65,26 +65,13 @@ fn process_char(
     }
 }
 
-// fn process_dollar(
-//     handler: CharHandler,
-//     state: &mut ArgsState
-// ) -> CharHandler {
-//     match handler {
-//         CharHandler::PreserveHandler(parent_handler) => {
-//             match parent_handler {
-                
-//             }
-//         },
-//     }
-// }
-
 fn process_backslash(
     handler: CharHandler,
     state: &mut ArgsState
 ) -> CharHandler {
     match handler {
-        CharHandler::UnqoutedHandler | CharHandler::DoubleQouteHandler => CharHandler::PreserveHandler(Box::new(handler)),
-        CharHandler::PreserveHandler(parent_handler) => {
+        CharHandler::Unqouted | CharHandler::DoubleQoute => CharHandler::Preserve(Box::new(handler)),
+        CharHandler::Preserve(parent_handler) => {
             state.push_char('\\');
 
             *parent_handler
@@ -102,21 +89,16 @@ fn process_single_qoute(
     state: &mut ArgsState,
 ) -> CharHandler {
     match handler {
-        CharHandler::DoubleQouteHandler => {
+        CharHandler::DoubleQoute => {
             state.push_char('\'');
 
-            CharHandler::DoubleQouteHandler
+            CharHandler::DoubleQoute
         },
-        CharHandler::SingleQouteHandler => CharHandler::UnqoutedHandler,
-        CharHandler::UnqoutedHandler => CharHandler::SingleQouteHandler,
-        // CharHandler::PreserveHandler(inner_handler) => {
-        //     state.push_char('\'');
-
-        //     *inner_handler
-        // },
-        CharHandler::PreserveHandler(inner_handler) => {
+        CharHandler::SingleQoute => CharHandler::Unqouted,
+        CharHandler::Unqouted => CharHandler::SingleQoute,
+        CharHandler::Preserve(inner_handler) => {
             match *inner_handler {
-                CharHandler::DoubleQouteHandler => {
+                CharHandler::DoubleQoute => {
                     state.push_char('\\');
                     state.push_char('\'');
                 },
@@ -136,24 +118,9 @@ fn process_symbol(
     state: &mut ArgsState,
 ) -> CharHandler {
     match handler {
-        // CharHandler::DoubleQouteHandler => {
-        //     state.push_char(c);
-
-        //     CharHandler::DoubleQouteHandler
-        // },
-        // CharHandler::SingleQouteHandler => {
-        //     state.push_char(c);
-
-        //     CharHandler::SingleQouteHandler
-        // },
-        // CharHandler::UnqoutedHandler => {
-        //     state.push_char(c);
-
-        //     CharHandler::UnqoutedHandler
-        // },
-        CharHandler::PreserveHandler(inner_handler) => {
+        CharHandler::Preserve(inner_handler) => {
             match *inner_handler {
-                CharHandler::DoubleQouteHandler => {
+                CharHandler::DoubleQoute => {
                     state.push_char('\\');
                     state.push_char(c);
                 },
@@ -170,7 +137,6 @@ fn process_symbol(
             handler
         }
     }
-    // state.push_char(c);
 }
 
 fn process_double_qoute(
@@ -178,21 +144,21 @@ fn process_double_qoute(
     state: &mut ArgsState,
 ) -> CharHandler {
     match handler {
-        CharHandler::PreserveHandler(inner_handler) => {
+        CharHandler::Preserve(inner_handler) => {
             state.push_char('"');
 
             *inner_handler
         },
-        CharHandler::SingleQouteHandler => {
+        CharHandler::SingleQoute => {
             state.push_char('"');
 
             handler
         },
-        CharHandler::DoubleQouteHandler => {
-            CharHandler::UnqoutedHandler
+        CharHandler::DoubleQoute => {
+            CharHandler::Unqouted
         },
-        CharHandler::UnqoutedHandler => {
-            CharHandler::DoubleQouteHandler
+        CharHandler::Unqouted => {
+            CharHandler::DoubleQoute
         }
     }
 }
@@ -203,157 +169,23 @@ fn process_whitespace(
     state: &mut ArgsState,
 ) -> CharHandler {
     match handler {
-        CharHandler::PreserveHandler(inner_handler) => {
+        CharHandler::Preserve(inner_handler) => {
             state.push_char(c);
 
             *inner_handler
         },
-        CharHandler::SingleQouteHandler => {
+        CharHandler::SingleQoute | CharHandler::DoubleQoute => {
             state.push_char(c);
 
             handler
         },
-        CharHandler::DoubleQouteHandler => {
-            state.push_char(c);
-
-            handler
-        },
-        CharHandler::UnqoutedHandler => {
+        CharHandler::Unqouted => {
             state.flush();
 
             handler
         }
     }
 }
-
-
-// struct SingleQouteHandler;
-// struct DoubleQouteHandler;
-// struct UnqoutedHandler;
-
-
-// trait CharHandler {
-//     fn handle_single_qoute(
-//         self: Box<Self>,
-//         c: char,
-//         current_string: &mut String,
-//         args: &mut Vec<String>,
-//     ) -> Box<dyn CharHandler>;
-//     fn handle_double_qoute(
-//         self: Box<Self>,
-//         c: char,
-//         current_string: &mut String,
-//         args: &mut Vec<String>,
-//     ) -> Box<dyn CharHandler>;
-//     fn handle_whitespace(
-//         self: Box<Self>,
-//         c: char,
-//         current_string: &mut String,
-//         args: &mut Vec<String>,
-//     ) -> Box<dyn CharHandler>;
-//     fn handle_symbol(
-//         self: Box<Self>,
-//         c: char,
-//         current_string: &mut String,
-//         args: &mut Vec<String>,
-//     ) -> Box<dyn CharHandler>;
-    
-//     fn handle(
-//         self: Box<Self>,
-//         c: char,
-//         current_string: &mut String,
-//         args: &mut Vec<String>,
-//     ) -> Box<dyn CharHandler> {
-//         match c {
-//             '\'' => self.handle_single_qoute(c, current_string, args),
-//             '"' => self.handle_double_qoute(c, current_string, args),
-//             c if c.is_whitespace() => self.handle_whitespace(c, current_string, args),
-//             c => self.handle_symbol(c, current_string, args),
-//         }
-//     }
-// }
-
-// impl CharHandler for UnqoutedHandler {
-//     fn handle_single_qoute(
-//         self: Box<Self>,
-//         c: char,
-//         current_string: &mut String,
-//         args: &mut Vec<String>,
-//     ) -> Box<dyn CharHandler> {
-//         // processor.push_char(c);
-//         current_string.push(c);
-
-//         self
-//     }
-
-//     fn handle_whitespace(self: Box<Self>, c: char, current_string: &mut String, args: &mut Vec<String>) -> Box<dyn CharHandler> {
-//         // string.push(c);
-//         // processor.flush_current_string();
-//         if !current_string.is_empty() {
-//             args.push(current_string.clone());
-//             *current_string = String::new();
-//         }
-
-//         self
-//     }
-
-//     fn handle_double_qoute(self: Box<Self>, c: char, current_string: &mut String, args: &mut Vec<String>) -> Box<dyn CharHandler> {
-//         // processor.push_char(c);
-//         current_string.push(c);
-
-//         self
-//     }
-
-//     fn handle_symbol(self: Box<Self>, c: char, current_string: &mut String, args: &mut Vec<String>) -> Box<dyn CharHandler> {
-//         // processor.push_char(c);
-//         current_string.push(c);
-
-//         self
-//     }
-// }
-
-// struct ArgsState {
-//     args: Vec<String>,
-//     current_string: String,
-// }
-
-// struct CharProcessor {
-//     handler: Box<dyn CharHandler>,
-//     args: Vec<String>,
-//     current_string: String,
-// }
-
-// impl CharProcessor {
-//     fn new() -> Self {
-//         CharProcessor {
-//             handler: Box::new(UnqoutedHandler),
-//             args: vec![],
-//             current_string: String::new(),
-//         }
-//     }
-
-//     fn process(&mut self, c: char) {
-//         self.handler = self.handler.handle(c, &mut self.current_string, &mut self.args);
-//         // self.handler.handle(c, self);
-//     }
-
-//     fn finish(mut self) -> Vec<String> {
-//         self.flush_current_string();
-
-//         self.args
-//     }
-
-//     fn flush_current_string(&mut self) {
-//         if !self.current_string.is_empty() {
-//             self.args.push(self.current_string.clone());
-//             self.current_string = String::new();
-//         }
-//     }
-
-//     fn push_char(&mut self, c: char) {
-//         self.current_string.push(c);
-//     } 
-// }
 
 fn main() {
     loop {
@@ -366,72 +198,43 @@ fn main() {
 
         let mut input = String::new();
         stdin.read_line(&mut input).unwrap();
-        // input.push(' ');
-        // println!("'{input}'");
-        // let mut iter = input.trim().split(' ');
-        // let command = iter.next();
 
-        let command = match input.split_once(char::is_whitespace) {
+        let mut args_state = ArgsState::new();
+        let mut char_handler = CharHandler::Unqouted;
+
+        input.chars().for_each(|c| {
+            char_handler = process_char(c, char_handler.clone(), &mut args_state);
+        });
+
+        let args_vec = args_state.finish();
+        let mut args_vec_iter = args_vec.iter();
+
+        let command = args_vec_iter.next();
+
+        let command = match command {
             None => continue,
-            Some((cmd, args_str)) => {
-                // let mut quote = None;
-                // let mut preserve_next = false;
-                // let mut custom_preserve = false;
-                // let mut args_vec: Vec<String> = vec![];
-                // let mut last_str = String::new();
-                // let mut charProcessor = CharProcessor::new();
-                let mut args_state = ArgsState::new();
-                let mut char_handler = CharHandler::UnqoutedHandler;
-
-                args_str.chars().for_each(|c| {
-                    char_handler = process_char(c, char_handler.clone(), &mut args_state);
-                    // match c {
-                    //     '\'' | '"' => {
-                    //         quote = Some(c);
-                    //     },
-                    //     c if c.is_whitespace() && quote.is_some() => {},
-                    //     c => {},
-                    // };
-                    // if preserve_next {
-                    //     if quote.is_some_and(|x| x == '"') && is_escapable(c) {
-                    //         last_str.push('\\');
-                    //     }
-                    //     last_str.push(c);
-                    //     preserve_next = false;
-                    //     custom_preserve = false;
-                    // } else if is_quote(c) && quote.is_some_and(|x| x == c) {
-                    //     quote = None;
-                    // } else if is_quote(c) && quote.is_none() {
-                    //     quote = Some(c);
-                    // } else if c == '\\' {
-                    //     preserve_next = true;
-                    //     if quote.is_some_and(|x| x == '"') {
-                    //         custom_preserve = true;
-                    //     }
-                    // } else if quote.is_some() || !c.is_whitespace() {
-                    //     last_str.push(c);
-                    // } else if !last_str.is_empty() {
-                    //     args_vec.push(last_str.clone());
-                    //     last_str = String::new();
-                    // }
-
-                    // // println!("{:?} {} {} {} |{}|", quote, preserve_next, custom_preserve, c, last_str);
-                });
-
-                // if !last_str.is_empty() {
-                //     args_vec.push(last_str);
-                // }
-                // println!("{} {} - {:?}", cmd, args_str, args_vec);
-                // let args_vec = charProcessor.finish();
-                let args_vec = args_state.finish();
-                // println!("res args: {args_vec:?}");
-
-                create_command(
-                    cmd.to_string(),
-                    args_vec,
-                )
-            },
+            Some(cmd) => create_command(cmd.clone(), args_vec_iter.map(|x| x.to_string()).collect())
         };
+
+        // let command = match input.split_once(char::is_whitespace) {
+        //     None => continue,
+        //     Some((cmd, args_str)) => {
+        //         let mut args_state = ArgsState::new();
+        //         let mut char_handler = CharHandler::Unqouted;
+
+        //         args_str.chars().for_each(|c| {
+        //             char_handler = process_char(c, char_handler.clone(), &mut args_state);
+        //         });
+
+        //         let args_vec = args_state.finish();
+        //         // println!("res args: {args_vec:?}");
+
+        //         create_command(
+        //             cmd.to_string(),
+        //             args_vec,
+        //         )
+        //     },
+        // };
 
         match command {
             CommandType::Exit { exit_code  } => exit(exit_code),
