@@ -246,6 +246,45 @@ fn main() {
                                             io::stdout().execute(Print(&rest_str)).unwrap();
                                             input.push_str(rest_str.as_str());
                                         } else {
+                                            let mut longest_common_pefix: Option<String> = None;
+
+                                            let mut all_suggestions = pathcmds
+                                                            .iter()
+                                                            .map(|e| e.0.clone())
+                                                            .collect::<Vec<String>>();
+                                                        all_suggestions.sort();
+                                                        let all_suggestions = all_suggestions;
+
+                                            for suggestion in all_suggestions.clone() {
+                                                if suggestion.starts_with(cmd) {
+                                                    longest_common_pefix = match longest_common_pefix {
+                                                        Some(prefix) => {
+                                                            // dbg!(prefix.clone(), suggestion.clone());
+                                                            // Some(prefix)
+                                                            let max = if prefix.len() > suggestion.len() { suggestion.len() } else { prefix.len() };
+                                                            let mut res = String::new();
+                                                            for i in 0..max {
+                                                                let prefix_i_char = prefix.chars().nth(i).unwrap();
+                                                                if  prefix_i_char != suggestion.chars().nth(i).unwrap() {
+                                                                    break;
+                                                                }
+
+                                                                res.push(prefix_i_char);
+                                                            }
+
+                                                            Some(res)
+                                                        },
+                                                        None => Some(suggestion),
+                                                    }
+                                                }
+                                            }
+
+                                            if longest_common_pefix.clone().is_some_and(|x| x.len() > cmd.len()) {
+                                                let  new_input = &longest_common_pefix.unwrap()[cmd.len()..];
+                                                io::stdout().execute(Print(new_input)).unwrap();
+                                                input.push_str(new_input);
+                                                continue;
+                                            }
                                             io::stdout().execute(Print("\x07")).unwrap();
 
                                             if let Event::Key(event) = read().unwrap() {
@@ -257,8 +296,49 @@ fn main() {
                                                             .collect::<Vec<String>>();
                                                         all_suggestions.sort();
                                                         let all_suggestions = all_suggestions;
-                                                        let all_suggestions_string = all_suggestions.join("  ");
-                                                        io::stdout().execute(Print(format!("\r\n{all_suggestions_string}\r\n$ {cmd}"))).unwrap();
+
+                                                        // let mut longest_common_pefix: Option<String> = None;
+
+                                                        // for suggestion in all_suggestions.clone() {
+                                                        //     if suggestion.starts_with(cmd) {
+                                                        //         longest_common_pefix = match longest_common_pefix {
+                                                        //             Some(prefix) => {
+                                                        //                 // dbg!(prefix.clone(), suggestion.clone());
+                                                        //                 // Some(prefix)
+                                                        //                 let max = if prefix.len() > suggestion.len() { suggestion.len() } else { prefix.len() };
+                                                        //                 let mut res = String::new();
+                                                        //                 for i in 0..max {
+                                                        //                     let prefix_i_char = prefix.chars().nth(i).unwrap();
+                                                        //                     if  prefix_i_char != suggestion.chars().nth(i).unwrap() {
+                                                        //                         break;
+                                                        //                     }
+
+                                                        //                     res.push(prefix_i_char);
+                                                        //                 }
+
+                                                        //                 Some(res)
+                                                        //             },
+                                                        //             None => Some(suggestion),
+                                                        //         }
+                                                        //     }
+                                                        // }
+
+
+                                                        // dbg!(
+                                                        //     longest_common_pefix.clone(),
+                                                        //     cmd.clone(),
+                                                        //     longest_common_pefix.clone().unwrap().len(),
+                                                        //     cmd.clone().len(),
+                                                        // );
+                                                        // if longest_common_pefix.clone().is_some_and(|x| x.len() > cmd.len()) {
+                                                            // let  new_input = &longest_common_pefix.unwrap()[cmd.len()..];
+                                                            // io::stdout().execute(Print(new_input)).unwrap();
+                                                            // input.push_str(new_input);
+                                                        // } else {
+                                                        // io::stdout().execute(Print(format!(": res - {longest_common_pefix:?}"))).unwrap();
+                                                            let all_suggestions_string = all_suggestions.join("  ");
+                                                            io::stdout().execute(Print(format!("\r\n{all_suggestions_string}\r\n$ {cmd}"))).unwrap();
+                                                        // }
                                                         // io::stdout().execute(Print(format!("\r\n{all_suggestions_string}"))).unwrap();
                                                     },
                                                     KeyCode::Char(c) => {
