@@ -3,6 +3,8 @@ use std::io::{self, Write};
 use crossterm::{event::{self, read, Event, KeyCode, KeyEvent, KeyModifiers}, style::Print, terminal, ExecutableCommand};
 use std::{env, fs::{self, File, OpenOptions}, io::{BufWriter, Read}, iter, os::{fd::FromRawFd, unix::process::CommandExt}, path::{Path, PathBuf}, process::{self, Command, Stdio}};
 
+struct PathCmd(String, String);
+
 enum CommandType {
     Echo { text: Vec<String> },
     Exit { exit_code: i32 },
@@ -233,8 +235,19 @@ fn main() {
                                 io::stdout().execute(Print("t ")).unwrap();
                                 input.push_str("t ");
                             },
-                            _ => {
-                                io::stdout().execute(Print("\x07")).unwrap();
+                            cmd => {
+                                if let Some(PathCmd(full_cmd, ..)) = check_path_for_predicate(|x| x.starts_with(cmd)) {
+                                    // dbg!(&full_cmd[cmd.len()..]);
+                                    // dbg!(full_cmd);
+                                    // io::stdout().execute(Print(&full_cmd)).unwrap();
+                                    let rest = &full_cmd[cmd.len()..];
+                                    // let rest = cmd;
+                                    let rest_str = rest.to_string() + " ";
+                                    io::stdout().execute(Print(&rest_str)).unwrap();
+                                    input.push_str(rest_str.as_str());
+                                } else {
+                                    io::stdout().execute(Print("\x07")).unwrap();
+                                }
                             },
                         }
                     }
@@ -395,32 +408,60 @@ fn type_cmd(cmd: &str) {
     }
 }
 
+fn check_path_for_start_with(cmd_beginning: &str) {
+
+}
+
+fn check_path_for_predicate<T: FnMut(&str) -> bool>(
+    mut predicate: T,
+) -> Option<PathCmd> {
+    match env::var("PATH") {
+        Ok(path) => path
+            .split(':')
+            .find_map(|dir| {
+                if let Some(found_cmd) = check_dir_for_cmd_predicate(dir, &mut predicate) {
+                    Some(PathCmd(found_cmd, dir.to_string()))
+                } else {
+                    None
+                }
+            }),
+        Err(_) => None,
+    }
+}
+
 fn check_path_for(cmd: &str) -> Option<String> {
     match env::var("PATH") {
         Ok(path) => path
             .split(':')
             .find(|dir| {
-                check_dir_for_cmd(dir, cmd).unwrap_or(false)
+                check_dir_for_cmd_predicate(dir, |x| x == cmd).is_some()
             })
             .map(|dir| dir.to_string()),
         Err(_) => None,
     }
 }
 
-fn check_dir_for_cmd(dir: &str, cmd: &str) -> Result<bool, std::io::Error> {
-    let dir = fs::read_dir(dir)?;
+fn check_dir_for_cmd_predicate<T: FnMut(&str) -> bool>(
+    dir: &str,
+    // cmd: &str,
+    mut predicate: T
+) -> Option<String> {
+    let dir = fs::read_dir(dir);
 
-    for path  in dir {
-        if let Ok(path_item) = path {
-            if let Some(last) = path_item.path().iter().last() {
-                if last == cmd {
-                    return Ok(true);
-                }
+    if let Ok(dir) = dir {
+        for path  in dir {
+            if let Ok(path_item) = path {
+                if let Some(last) = path_item.path().iter().last() {
+                    if predicate(last.to_str().unwrap()) {
+                        // println!("cmd: {}", last.to_string_lossy().to_string());
+                        return Some(last.to_string_lossy().to_string());
+                    }
+                } 
             }
-        } 
+        }
     }
 
-    Ok(false)
+    None
 }
 
 fn exit(code: i32) {
