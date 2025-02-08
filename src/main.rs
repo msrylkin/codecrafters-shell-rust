@@ -3,6 +3,7 @@ use std::io::{self, Write};
 use crossterm::{event::{self, read, Event, KeyCode, KeyEvent, KeyModifiers}, style::Print, terminal, ExecutableCommand};
 use std::{env, fs::{self, File, OpenOptions}, io::{BufWriter, Read}, iter, os::{fd::FromRawFd, unix::process::CommandExt}, path::{Path, PathBuf}, process::{self, Command, Stdio}};
 
+#[derive(Hash, Eq, PartialEq, Clone)]
 struct PathCmd(String, String);
 
 enum CommandType {
@@ -236,15 +237,41 @@ fn main() {
                                 input.push_str("t ");
                             },
                             cmd => {
-                                if let Some(PathCmd(full_cmd, ..)) = check_path_for_predicate(|x| x.starts_with(cmd)) {
-                                    // dbg!(&full_cmd[cmd.len()..]);
-                                    // dbg!(full_cmd);
-                                    // io::stdout().execute(Print(&full_cmd)).unwrap();
-                                    let rest = &full_cmd[cmd.len()..];
-                                    // let rest = cmd;
-                                    let rest_str = rest.to_string() + " ";
-                                    io::stdout().execute(Print(&rest_str)).unwrap();
-                                    input.push_str(rest_str.as_str());
+                                if let Some(pathcmds) = check_path_for_predicate(|x| x.starts_with(cmd)) {
+                                    if !pathcmds.is_empty() {
+                                        if pathcmds.len() == 1 {
+                                            let full_cmd = &pathcmds[0].0;
+                                            let rest = &full_cmd[cmd.len()..];
+                                            let rest_str = rest.to_string() + " ";
+                                            io::stdout().execute(Print(&rest_str)).unwrap();
+                                            input.push_str(rest_str.as_str());
+                                        } else {
+                                            io::stdout().execute(Print("\x07")).unwrap();
+
+                                            if let Event::Key(event) = read().unwrap() {
+                                                match event.code {
+                                                    KeyCode::Tab => {
+                                                        let mut all_suggestions = pathcmds
+                                                            .iter()
+                                                            .map(|e| e.0.clone())
+                                                            .collect::<Vec<String>>();
+                                                        all_suggestions.sort();
+                                                        let all_suggestions = all_suggestions;
+                                                        let all_suggestions_string = all_suggestions.join("  ");
+                                                        io::stdout().execute(Print(format!("\r\n{all_suggestions_string}\r\n$ {cmd}"))).unwrap();
+                                                        // io::stdout().execute(Print(format!("\r\n{all_suggestions_string}"))).unwrap();
+                                                    },
+                                                    KeyCode::Char(c) => {
+                                                        io::stdout().execute(Print(c)).unwrap();
+                                                        input.push(c);
+                                                    },
+                                                    _ => {},
+                                                }
+                                            }
+                                        }
+                                    } else {
+                                        io::stdout().execute(Print("\x07")).unwrap();
+                                    }
                                 } else {
                                     io::stdout().execute(Print("\x07")).unwrap();
                                 }
@@ -414,17 +441,42 @@ fn check_path_for_start_with(cmd_beginning: &str) {
 
 fn check_path_for_predicate<T: FnMut(&str) -> bool>(
     mut predicate: T,
-) -> Option<PathCmd> {
+) -> Option<Vec<PathCmd>> {
     match env::var("PATH") {
-        Ok(path) => path
-            .split(':')
-            .find_map(|dir| {
-                if let Some(found_cmd) = check_dir_for_cmd_predicate(dir, &mut predicate) {
-                    Some(PathCmd(found_cmd, dir.to_string()))
-                } else {
-                    None
-                }
-            }),
+        Ok(path) => {
+            let mut res_vec: Vec<PathCmd> = vec![];
+
+            
+            path
+                .split(':')
+                .for_each(|dir| {
+                    let cmds = check_dir_for_cmd_predicate(dir, &mut predicate);
+                    cmds
+                        .iter()
+                        .for_each(|cmd| {
+                            if res_vec.iter().find(|z| &z.0 == cmd).is_none() {
+                                res_vec.push(PathCmd(cmd.to_string(), path.to_string()));
+                            }
+                        })
+                        // .collect::<Vec<PathCmd>>()
+                        // .collect::<std::collections::HashSet<PathCmd>>()
+                        // .iter()
+                        // .cloned()
+                        // .collect::<Vec<PathCmd>>()
+                });
+            
+            Some(res_vec)
+                    // .flatten()
+                    // .collect();
+        },
+            // .fold(Some(vec![]), |acc, dir| {
+            //     // if let Some(found_cmd) = check_dir_for_cmd_predicate(dir, &mut predicate) {
+            //     //     Some(PathCmd(found_cmd, dir.to_string()))
+            //     // } else {
+            //     //     None
+            //     // }
+                
+            // }),
         Err(_) => None,
     }
 }
@@ -434,7 +486,7 @@ fn check_path_for(cmd: &str) -> Option<String> {
         Ok(path) => path
             .split(':')
             .find(|dir| {
-                check_dir_for_cmd_predicate(dir, |x| x == cmd).is_some()
+                !check_dir_for_cmd_predicate(dir, |x| x == cmd).is_empty()
             })
             .map(|dir| dir.to_string()),
         Err(_) => None,
@@ -445,8 +497,10 @@ fn check_dir_for_cmd_predicate<T: FnMut(&str) -> bool>(
     dir: &str,
     // cmd: &str,
     mut predicate: T
-) -> Option<String> {
+) -> Vec<String> {
     let dir = fs::read_dir(dir);
+
+    let mut vec: Vec<String> = vec![];
 
     if let Ok(dir) = dir {
         for path  in dir {
@@ -454,14 +508,15 @@ fn check_dir_for_cmd_predicate<T: FnMut(&str) -> bool>(
                 if let Some(last) = path_item.path().iter().last() {
                     if predicate(last.to_str().unwrap()) {
                         // println!("cmd: {}", last.to_string_lossy().to_string());
-                        return Some(last.to_string_lossy().to_string());
+                        // return Some(last.to_string_lossy().to_string());
+                        vec.push(last.to_string_lossy().to_string());
                     }
                 } 
             }
         }
     }
 
-    None
+    vec
 }
 
 fn exit(code: i32) {
