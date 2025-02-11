@@ -1,5 +1,5 @@
 
-use std::{collections::HashMap, env, fmt::Display, io};
+use std::{cmp, collections::HashMap, env, fmt::Display, io};
 
 use crossterm::{event::{read, Event, KeyCode, KeyModifiers}, style::Print, terminal};
 use crossterm::ExecutableCommand;
@@ -200,36 +200,82 @@ fn find_longest_common_fill(
     commands: &[PathCmd],
     prefix: &str
 ) -> Option<String> {
-    let mut longest_common_pefix: Option<String> = None;
+    // let mut longest_common_pefix: Option<String> = None;
 
-    let mut all_suggestions = commands
+    // let mut all_suggestions = commands
+    //     .iter()
+    //     .map(|e| e.command.clone())
+    //     .collect::<Vec<String>>();
+    // all_suggestions.sort();
+    // let all_suggestions = all_suggestions;
+
+    commands
         .iter()
-        .map(|e| e.command.clone())
-        .collect::<Vec<String>>();
-    all_suggestions.sort();
-    let all_suggestions = all_suggestions;
+        // .map(|e| e.command)
+        .fold(<Option<&str>>::None, |longest_common, path_cmd| {
+            if path_cmd.command.starts_with(prefix) {
+                let retv = match longest_common {
+                    None => {
+                        return Some(&path_cmd.command);
+                    },
+                    Some(longest_common) => {
+                        // let max = if longest_common.len() > path_cmd.command.len() { path_cmd.command.len() } else { longest_common.len() };
+                        // let rightmost_i = cmp::min(longest_common.len(), path_cmd.command.len());
+                        let (longer, shorter) = match path_cmd.command.chars().count().cmp(&longest_common.chars().count()) {
+                            cmp::Ordering::Less => (longest_common, path_cmd.command.as_str()),
+                            cmp::Ordering::Equal | cmp::Ordering::Greater => (path_cmd.command.as_str(), longest_common),
+                        };
+                        // let i = 0;
+                        // let mut res = String::new();
+                        let i = longer
+                            .chars()
+                            .zip(shorter.chars())
+                            .take_while(|&(c_a, c_b)| c_a == c_b)
+                            .count();
 
-    for suggestion in all_suggestions.clone() {
-        if suggestion.starts_with(prefix) {
-            longest_common_pefix = match longest_common_pefix {
-                Some(prefix) => {
-                    let max = if prefix.len() > suggestion.len() { suggestion.len() } else { prefix.len() };
-                    let mut res = String::new();
-                    for i in 0..max {
-                        let prefix_i_char = prefix.chars().nth(i).unwrap();
-                        if  prefix_i_char != suggestion.chars().nth(i).unwrap() {
-                            break;
-                        }
+                        Some(&shorter[..i])
+                        // for i in 0..max {
+                        //     let prefix_i_char = longest_common.chars().nth(i).unwrap();
+                        //     if  prefix_i_char != path_cmd.command.chars().nth(i).unwrap() {
+                        //         break;
+                        //     }
 
-                        res.push(prefix_i_char);
+                        //     res.push(prefix_i_char);
+                        // }
+
+                        // return Some(&res);
                     }
+                };
 
-                    Some(res)
-                },
-                None => Some(suggestion),
+                return retv
             }
-        }
-    }
 
-    longest_common_pefix
+            longest_common
+        })
+        .map(|e| e.to_string())
+        
+
+    // for suggestion in all_suggestions.clone() {
+    //     if suggestion.starts_with(prefix) {
+    //         longest_common_pefix = match longest_common_pefix {
+    //             Some(prefix) => {
+    //                 let max = if prefix.len() > suggestion.len() { suggestion.len() } else { prefix.len() };
+    //                 let mut res = String::new();
+    //                 for i in 0..max {
+    //                     let prefix_i_char = prefix.chars().nth(i).unwrap();
+    //                     if  prefix_i_char != suggestion.chars().nth(i).unwrap() {
+    //                         break;
+    //                     }
+
+    //                     res.push(prefix_i_char);
+    //                 }
+
+    //                 Some(res)
+    //             },
+    //             None => Some(suggestion),
+    //         }
+    //     }
+    // }
+
+    // longest_common_pefix
 }
