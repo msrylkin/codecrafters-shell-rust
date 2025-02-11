@@ -189,16 +189,8 @@ fn main() {
 
         terminal::disable_raw_mode().unwrap();
 
-        let mut args_state = ArgsState::new();
-        let mut char_handler = CharHandler::Unqouted;
-
-        input.chars().for_each(|c| {
-            char_handler = process_char(c, char_handler.clone(), &mut args_state);
-        });
-
-        let args_vec = args_state.finish();
+        let args_vec = ArgsParser::new(input).parse();
         let mut args_vec_iter = args_vec.iter();
-
         let command = args_vec_iter.next();
         let command_args: Vec<String> = args_vec_iter.map(|x| x.to_string()).collect();
 
