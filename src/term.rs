@@ -196,37 +196,23 @@ fn fill_remaining_command(
     pint_and_push(&rest_str, target_string);
 }
 
-fn find_longest_common_fill(
-    commands: &[PathCmd],
+fn find_longest_common_fill<'a>(
+    commands: &'a [PathCmd],
     prefix: &str
-) -> Option<String> {
-    // let mut longest_common_pefix: Option<String> = None;
-
-    // let mut all_suggestions = commands
-    //     .iter()
-    //     .map(|e| e.command.clone())
-    //     .collect::<Vec<String>>();
-    // all_suggestions.sort();
-    // let all_suggestions = all_suggestions;
-
+) -> Option<&'a str> {
     commands
         .iter()
-        // .map(|e| e.command)
-        .fold(<Option<&str>>::None, |longest_common, path_cmd| {
+        .fold(<Option<&str>>::None, |current_common_prefix, path_cmd| {
             if path_cmd.command.starts_with(prefix) {
-                let retv = match longest_common {
+                return match current_common_prefix {
                     None => {
                         return Some(&path_cmd.command);
                     },
-                    Some(longest_common) => {
-                        // let max = if longest_common.len() > path_cmd.command.len() { path_cmd.command.len() } else { longest_common.len() };
-                        // let rightmost_i = cmp::min(longest_common.len(), path_cmd.command.len());
-                        let (longer, shorter) = match path_cmd.command.chars().count().cmp(&longest_common.chars().count()) {
-                            cmp::Ordering::Less => (longest_common, path_cmd.command.as_str()),
-                            cmp::Ordering::Equal | cmp::Ordering::Greater => (path_cmd.command.as_str(), longest_common),
+                    Some(current_common_prefix) => {
+                        let (longer, shorter) = match path_cmd.command.chars().count().cmp(&current_common_prefix.chars().count()) {
+                            cmp::Ordering::Less => (current_common_prefix, path_cmd.command.as_str()),
+                            cmp::Ordering::Equal | cmp::Ordering::Greater => (path_cmd.command.as_str(), current_common_prefix),
                         };
-                        // let i = 0;
-                        // let mut res = String::new();
                         let i = longer
                             .chars()
                             .zip(shorter.chars())
@@ -234,48 +220,10 @@ fn find_longest_common_fill(
                             .count();
 
                         Some(&shorter[..i])
-                        // for i in 0..max {
-                        //     let prefix_i_char = longest_common.chars().nth(i).unwrap();
-                        //     if  prefix_i_char != path_cmd.command.chars().nth(i).unwrap() {
-                        //         break;
-                        //     }
-
-                        //     res.push(prefix_i_char);
-                        // }
-
-                        // return Some(&res);
                     }
-                };
-
-                return retv
+                }
             }
 
-            longest_common
+            current_common_prefix
         })
-        .map(|e| e.to_string())
-        
-
-    // for suggestion in all_suggestions.clone() {
-    //     if suggestion.starts_with(prefix) {
-    //         longest_common_pefix = match longest_common_pefix {
-    //             Some(prefix) => {
-    //                 let max = if prefix.len() > suggestion.len() { suggestion.len() } else { prefix.len() };
-    //                 let mut res = String::new();
-    //                 for i in 0..max {
-    //                     let prefix_i_char = prefix.chars().nth(i).unwrap();
-    //                     if  prefix_i_char != suggestion.chars().nth(i).unwrap() {
-    //                         break;
-    //                     }
-
-    //                     res.push(prefix_i_char);
-    //                 }
-
-    //                 Some(res)
-    //             },
-    //             None => Some(suggestion),
-    //         }
-    //     }
-    // }
-
-    // longest_common_pefix
 }
