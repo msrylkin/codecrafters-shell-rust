@@ -61,41 +61,42 @@ impl<F: Fn()> Term<F> {
                                 if !pathcmds.is_empty() {
                                     if pathcmds.len() == 1 {
                                         let full_cmd = &pathcmds[0].command;
-                                        let rest = &full_cmd[cmd.len()..];
-                                        let rest_str = rest.to_string() + " ";
-                                        io::stdout().execute(Print(&rest_str)).unwrap();
-                                        input.push_str(rest_str.as_str());
+                                        fill_remaining_command(
+                                            full_cmd.strip_prefix(cmd).unwrap(),
+                                            &mut input,
+                                        );
                                     } else {
-                                        let mut longest_common_pefix: Option<String> = None;
+                                        // let mut longest_common_pefix: Option<String> = None;
 
-                                        let mut all_suggestions = pathcmds
-                                                        .iter()
-                                                        .map(|e| e.command.clone())
-                                                        .collect::<Vec<String>>();
-                                        all_suggestions.sort();
-                                        let all_suggestions = all_suggestions;
+                                        // let mut all_suggestions = pathcmds
+                                        //     .iter()
+                                        //     .map(|e| e.command.clone())
+                                        //     .collect::<Vec<String>>();
+                                        // all_suggestions.sort();
+                                        // let all_suggestions = all_suggestions;
 
-                                        for suggestion in all_suggestions.clone() {
-                                            if suggestion.starts_with(cmd) {
-                                                longest_common_pefix = match longest_common_pefix {
-                                                    Some(prefix) => {
-                                                        let max = if prefix.len() > suggestion.len() { suggestion.len() } else { prefix.len() };
-                                                        let mut res = String::new();
-                                                        for i in 0..max {
-                                                            let prefix_i_char = prefix.chars().nth(i).unwrap();
-                                                            if  prefix_i_char != suggestion.chars().nth(i).unwrap() {
-                                                                break;
-                                                            }
+                                        // for suggestion in all_suggestions.clone() {
+                                        //     if suggestion.starts_with(cmd) {
+                                        //         longest_common_pefix = match longest_common_pefix {
+                                        //             Some(prefix) => {
+                                        //                 let max = if prefix.len() > suggestion.len() { suggestion.len() } else { prefix.len() };
+                                        //                 let mut res = String::new();
+                                        //                 for i in 0..max {
+                                        //                     let prefix_i_char = prefix.chars().nth(i).unwrap();
+                                        //                     if  prefix_i_char != suggestion.chars().nth(i).unwrap() {
+                                        //                         break;
+                                        //                     }
 
-                                                            res.push(prefix_i_char);
-                                                        }
+                                        //                     res.push(prefix_i_char);
+                                        //                 }
 
-                                                        Some(res)
-                                                    },
-                                                    None => Some(suggestion),
-                                                }
-                                            }
-                                        }
+                                        //                 Some(res)
+                                        //             },
+                                        //             None => Some(suggestion),
+                                        //         }
+                                        //     }
+                                        // }
+                                        let mut longest_common_pefix = find_longest_common_fill(&pathcmds, cmd);
 
                                         if longest_common_pefix.clone().is_some_and(|x| x.len() > cmd.len()) {
                                             let  new_input = &longest_common_pefix.unwrap()[cmd.len()..];
@@ -103,7 +104,7 @@ impl<F: Fn()> Term<F> {
                                             input.push_str(new_input);
                                             continue;
                                         }
-                                        io::stdout().execute(Print("\x07")).unwrap();
+                                        print_bell();
 
                                         if let Event::Key(event) = read().unwrap() {
                                             match event.code {
@@ -112,13 +113,13 @@ impl<F: Fn()> Term<F> {
                                                         .iter()
                                                         .map(|e| e.command.clone())
                                                         .collect::<Vec<String>>();
-                                                    all_suggestions.sort();
+                                                    // all_suggestions.sort();
                                                     let all_suggestions = all_suggestions;
                                                     let all_suggestions_string = all_suggestions.join("  ");
-                                                    io::stdout().execute(Print(format!("\r\n{all_suggestions_string}\r\n$ {cmd}"))).unwrap();
+                                                    print(format!("\r\n{all_suggestions_string}\r\n$ {cmd}"));
                                                 },
                                                 KeyCode::Char(c) => {
-                                                    io::stdout().execute(Print(c)).unwrap();
+                                                    print(c);
                                                     input.push(c);
                                                 },
                                                 _ => {},
@@ -126,13 +127,8 @@ impl<F: Fn()> Term<F> {
                                         }
                                     }
                                 } else {
-                                    io::stdout().execute(Print("\x07")).unwrap();
+                                    print_bell();
                                 }
-                                // if let Some(pathcmds) = check_path_for_predicate(|x| x.starts_with(cmd)) {
-                                    
-                                // } else {
-                                //     io::stdout().execute(Print("\x07")).unwrap();
-                                // }
                             },
                         }
                     }
@@ -150,7 +146,7 @@ impl<F: Fn()> Term<F> {
 fn check_path_for_predicate<T: FnMut(&str) -> bool>(
     mut predicate: T,
 ) -> Vec<PathCmd> {
-    let res = env::var("PATH")
+    env::var("PATH")
         .ok()
         .map(|path_env| {
             let mut commands_vec = path_env
@@ -176,32 +172,64 @@ fn check_path_for_predicate<T: FnMut(&str) -> bool>(
 
             commands_vec
         })
-        .unwrap_or_default();
-
-    res
-    // match env::var("PATH") {
-    //     Ok(path) => {
-    //         let mut res_vec: Vec<PathCmd> = vec![];
-            
-    //         path
-    //             .split(':')
-    //             .for_each(|dir| {
-    //                 let cmds = check_dir_for_cmd_predicate(dir, &mut predicate);
-    //                 cmds
-    //                     .iter()
-    //                     .for_each(|cmd| {
-    //                         if res_vec.iter().find(|z| &z.0 == cmd).is_none() {
-    //                             res_vec.push(PathCmd(cmd.to_string(), path.to_string()));
-    //                         }
-    //                     })
-    //             });
-            
-    //         Some(res_vec)
-    //     },
-    //     Err(_) => None,
-    // }
+        .unwrap_or_default()
 }
 
 fn print<T: Display>(data: T) {
     io::stdout().execute(Print(data)).unwrap();
+}
+
+fn print_bell() {
+    print("\x07");
+}
+
+fn pint_and_push(data: &str, target_string: &mut String) {
+    print(data);
+    target_string.push_str(data);
+}
+
+fn fill_remaining_command(
+    postfix: &str,
+    target_string: &mut String
+) {
+    let rest_str = format!("{} ", postfix);
+    pint_and_push(&rest_str, target_string);
+}
+
+fn find_longest_common_fill(
+    commands: &[PathCmd],
+    prefix: &str
+) -> Option<String> {
+    let mut longest_common_pefix: Option<String> = None;
+
+    let mut all_suggestions = commands
+        .iter()
+        .map(|e| e.command.clone())
+        .collect::<Vec<String>>();
+    all_suggestions.sort();
+    let all_suggestions = all_suggestions;
+
+    for suggestion in all_suggestions.clone() {
+        if suggestion.starts_with(prefix) {
+            longest_common_pefix = match longest_common_pefix {
+                Some(prefix) => {
+                    let max = if prefix.len() > suggestion.len() { suggestion.len() } else { prefix.len() };
+                    let mut res = String::new();
+                    for i in 0..max {
+                        let prefix_i_char = prefix.chars().nth(i).unwrap();
+                        if  prefix_i_char != suggestion.chars().nth(i).unwrap() {
+                            break;
+                        }
+
+                        res.push(prefix_i_char);
+                    }
+
+                    Some(res)
+                },
+                None => Some(suggestion),
+            }
+        }
+    }
+
+    longest_common_pefix
 }
