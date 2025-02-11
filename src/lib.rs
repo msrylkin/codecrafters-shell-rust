@@ -6,8 +6,8 @@ pub fn check_dir_for_cmd_predicate<T: FnMut(&str) -> bool>(
 ) -> Vec<String> {
     fs::read_dir(dir)
         .ok()
-        .and_then(|read_dir| {
-            read_dir.map(|dir_entry| {
+        .map(|read_dir| {
+            read_dir.filter_map(|dir_entry| {
                 dir_entry.ok().and_then(|ok_dir_entry| {
                     ok_dir_entry
                         .file_name()
