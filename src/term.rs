@@ -182,14 +182,14 @@ fn find_longest_common_fill<'a>(
 ) -> Option<&'a str> {
     commands
         .iter()
-        .filter(|PathCmd {command, ..}| command.starts_with(prefix))
-        .fold(<Option<&str>>::None, |current_common_prefix, path_cmd| {
+        .filter_map(|PathCmd {command, ..}| command.starts_with(prefix).then_some(command))
+        .fold(<Option<&str>>::None, |current_common_prefix, command| {
             match current_common_prefix {
-                None => Some(&path_cmd.command),
+                None => Some(command),
                 Some(current_common_prefix) => {
-                    let (longer, shorter) = match path_cmd.command.chars().count().cmp(&current_common_prefix.chars().count()) {
-                        cmp::Ordering::Less => (current_common_prefix, path_cmd.command.as_str()),
-                        cmp::Ordering::Equal | cmp::Ordering::Greater => (path_cmd.command.as_str(), current_common_prefix),
+                    let (longer, shorter) = match command.chars().count().cmp(&current_common_prefix.chars().count()) {
+                        cmp::Ordering::Less => (current_common_prefix, command.as_str()),
+                        cmp::Ordering::Equal | cmp::Ordering::Greater => (command.as_str(), current_common_prefix),
                     };
 
                     let i = longer
