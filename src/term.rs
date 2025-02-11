@@ -66,37 +66,11 @@ impl<F: Fn()> Term<F> {
                                             &mut input,
                                         );
                                     } else {
-                                        // let mut longest_common_pefix: Option<String> = None;
+                                        let longest_common_pefix = find_longest_common_fill(&pathcmds, cmd);
 
-                                        // let mut all_suggestions = pathcmds
-                                        //     .iter()
-                                        //     .map(|e| e.command.clone())
-                                        //     .collect::<Vec<String>>();
-                                        // all_suggestions.sort();
-                                        // let all_suggestions = all_suggestions;
-
-                                        // for suggestion in all_suggestions.clone() {
-                                        //     if suggestion.starts_with(cmd) {
-                                        //         longest_common_pefix = match longest_common_pefix {
-                                        //             Some(prefix) => {
-                                        //                 let max = if prefix.len() > suggestion.len() { suggestion.len() } else { prefix.len() };
-                                        //                 let mut res = String::new();
-                                        //                 for i in 0..max {
-                                        //                     let prefix_i_char = prefix.chars().nth(i).unwrap();
-                                        //                     if  prefix_i_char != suggestion.chars().nth(i).unwrap() {
-                                        //                         break;
-                                        //                     }
-
-                                        //                     res.push(prefix_i_char);
-                                        //                 }
-
-                                        //                 Some(res)
-                                        //             },
-                                        //             None => Some(suggestion),
-                                        //         }
-                                        //     }
+                                        // match longest_common_pefix {
+                                            
                                         // }
-                                        let mut longest_common_pefix = find_longest_common_fill(&pathcmds, cmd);
 
                                         if longest_common_pefix.clone().is_some_and(|x| x.len() > cmd.len()) {
                                             let  new_input = &longest_common_pefix.unwrap()[cmd.len()..];
@@ -203,27 +177,23 @@ fn find_longest_common_fill<'a>(
     commands
         .iter()
         .fold(<Option<&str>>::None, |current_common_prefix, path_cmd| {
-            if path_cmd.command.starts_with(prefix) {
-                return match current_common_prefix {
-                    None => {
-                        return Some(&path_cmd.command);
-                    },
-                    Some(current_common_prefix) => {
-                        let (longer, shorter) = match path_cmd.command.chars().count().cmp(&current_common_prefix.chars().count()) {
-                            cmp::Ordering::Less => (current_common_prefix, path_cmd.command.as_str()),
-                            cmp::Ordering::Equal | cmp::Ordering::Greater => (path_cmd.command.as_str(), current_common_prefix),
-                        };
-                        let i = longer
-                            .chars()
-                            .zip(shorter.chars())
-                            .take_while(|&(c_a, c_b)| c_a == c_b)
-                            .count();
+            match current_common_prefix {
+                None => Some(&path_cmd.command),
+                Some(_) if !path_cmd.command.starts_with(prefix) => current_common_prefix,
+                Some(current_common_prefix) => {
+                    let (longer, shorter) = match path_cmd.command.chars().count().cmp(&current_common_prefix.chars().count()) {
+                        cmp::Ordering::Less => (current_common_prefix, path_cmd.command.as_str()),
+                        cmp::Ordering::Equal | cmp::Ordering::Greater => (path_cmd.command.as_str(), current_common_prefix),
+                    };
 
-                        Some(&shorter[..i])
-                    }
+                    let i = longer
+                        .chars()
+                        .zip(shorter.chars())
+                        .take_while(|&(c_a, c_b)| c_a == c_b)
+                        .count();
+
+                    Some(&shorter[..i])
                 }
             }
-
-            current_common_prefix
         })
 }
