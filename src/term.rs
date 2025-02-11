@@ -66,39 +66,45 @@ impl<F: Fn()> Term<F> {
                                             &mut input,
                                         );
                                     } else {
-                                        let longest_common_pefix = find_longest_common_fill(&pathcmds, cmd);
+                                        // let longest_common_fill = ;
 
-                                        // match longest_common_pefix {
-                                            
+                                        match find_longest_common_fill(&pathcmds, cmd) {
+                                            Some(longest_common_fill) if longest_common_fill.len() > cmd.len() => {
+                                                // fill_remaining_command(&longest_common_fill[cmd.len()..], &mut input)
+                                                print_and_push(&longest_common_fill[cmd.len()..], &mut input);
+                                            },
+                                            None | Some(_) => {
+                                                print_bell();
+
+                                                if let Event::Key(event) = read().unwrap() {
+                                                    match event.code {
+                                                        KeyCode::Tab => {
+                                                            let mut all_suggestions = pathcmds
+                                                                .iter()
+                                                                .map(|e| e.command.clone())
+                                                                .collect::<Vec<String>>();
+                                                            // all_suggestions.sort();
+                                                            let all_suggestions = all_suggestions;
+                                                            let all_suggestions_string = all_suggestions.join("  ");
+                                                            print(format!("\r\n{all_suggestions_string}\r\n$ {cmd}"));
+                                                        },
+                                                        KeyCode::Char(c) => {
+                                                            print(c);
+                                                            input.push(c);
+                                                        },
+                                                        _ => {},
+                                                    }
+                                                }
+                                            },
+                                        }
+
+                                        // if longest_common_pefix.clone().is_some_and(|x| x.len() > cmd.len()) {
+                                        //     let  new_input = &longest_common_pefix.unwrap()[cmd.len()..];
+                                        //     io::stdout().execute(Print(new_input)).unwrap();
+                                        //     input.push_str(new_input);
+                                        //     continue;
                                         // }
 
-                                        if longest_common_pefix.clone().is_some_and(|x| x.len() > cmd.len()) {
-                                            let  new_input = &longest_common_pefix.unwrap()[cmd.len()..];
-                                            io::stdout().execute(Print(new_input)).unwrap();
-                                            input.push_str(new_input);
-                                            continue;
-                                        }
-                                        print_bell();
-
-                                        if let Event::Key(event) = read().unwrap() {
-                                            match event.code {
-                                                KeyCode::Tab => {
-                                                    let mut all_suggestions = pathcmds
-                                                        .iter()
-                                                        .map(|e| e.command.clone())
-                                                        .collect::<Vec<String>>();
-                                                    // all_suggestions.sort();
-                                                    let all_suggestions = all_suggestions;
-                                                    let all_suggestions_string = all_suggestions.join("  ");
-                                                    print(format!("\r\n{all_suggestions_string}\r\n$ {cmd}"));
-                                                },
-                                                KeyCode::Char(c) => {
-                                                    print(c);
-                                                    input.push(c);
-                                                },
-                                                _ => {},
-                                            }
-                                        }
                                     }
                                 } else {
                                     print_bell();
@@ -157,7 +163,7 @@ fn print_bell() {
     print("\x07");
 }
 
-fn pint_and_push(data: &str, target_string: &mut String) {
+fn print_and_push(data: &str, target_string: &mut String) {
     print(data);
     target_string.push_str(data);
 }
@@ -167,7 +173,7 @@ fn fill_remaining_command(
     target_string: &mut String
 ) {
     let rest_str = format!("{} ", postfix);
-    pint_and_push(&rest_str, target_string);
+    print_and_push(&rest_str, target_string);
 }
 
 fn find_longest_common_fill<'a>(
