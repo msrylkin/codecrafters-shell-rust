@@ -1,7 +1,6 @@
-
 use std::{cmp, collections::HashMap, env, fmt::Display, io};
 
-use crossterm::{event::{read, Event, KeyCode, KeyModifiers}, style::Print, terminal};
+use crossterm::{event::{read, Event, KeyCode, KeyEvent, KeyModifiers}, style::Print, terminal};
 use crossterm::ExecutableCommand;
 use crate::lib::*;
 
@@ -14,6 +13,11 @@ struct PathCmd {
     path: String,
 }
 
+enum TermSignal {
+    Exit,
+    EndLine,
+    EndChar,
+}
 
 impl<F: Fn()> Term<F> {
     pub fn new(on_exit: F) -> Self {
@@ -29,90 +33,10 @@ impl<F: Fn()> Term<F> {
 
         loop {
             if let Event::Key(event) = read().unwrap() {
-                match event.code {
-                    KeyCode::Char('c') if event.modifiers.contains(KeyModifiers::CONTROL) => {
-                        (self.on_exit)();
-                    },
-                    KeyCode::Char('j') if event.modifiers.contains(KeyModifiers::CONTROL) => {
-                        print("\r\n");
-                        break;
-                    },
-                    KeyCode::Char(c) => {
-                        print(c);
-                        input.push(c);
-                    },
-                    KeyCode::Enter => {
-                        print("\r\n");
-                        input.push_str("\r\n");
-                        break;
-                    },
-                    KeyCode::Tab => {
-                        match input.as_str() {
-                            "ech" => {
-                                io::stdout().execute(Print("o ")).unwrap();
-                                input.push_str("o ");
-                            },
-                            "exi" => {
-                                io::stdout().execute(Print("t ")).unwrap();
-                                input.push_str("t ");
-                            },
-                            cmd => {
-                                let pathcmds = check_path_for_predicate(|x| x.starts_with(cmd));
-                                if !pathcmds.is_empty() {
-                                    if pathcmds.len() == 1 {
-                                        let full_cmd = &pathcmds[0].command;
-                                        fill_remaining_command(
-                                            full_cmd.strip_prefix(cmd).unwrap(),
-                                            &mut input,
-                                        );
-                                    } else {
-                                        // let longest_common_fill = ;
-
-                                        match find_longest_common_fill(&pathcmds, cmd) {
-                                            Some(longest_common_fill) if longest_common_fill.len() > cmd.len() => {
-                                                // fill_remaining_command(&longest_common_fill[cmd.len()..], &mut input)
-                                                print_and_push(&longest_common_fill[cmd.len()..], &mut input);
-                                            },
-                                            None | Some(_) => {
-                                                print_bell();
-
-                                                if let Event::Key(event) = read().unwrap() {
-                                                    match event.code {
-                                                        KeyCode::Tab => {
-                                                            let mut all_suggestions = pathcmds
-                                                                .iter()
-                                                                .map(|e| e.command.clone())
-                                                                .collect::<Vec<String>>();
-                                                            // all_suggestions.sort();
-                                                            let all_suggestions = all_suggestions;
-                                                            let all_suggestions_string = all_suggestions.join("  ");
-                                                            print(format!("\r\n{all_suggestions_string}\r\n$ {cmd}"));
-                                                        },
-                                                        KeyCode::Char(c) => {
-                                                            print(c);
-                                                            input.push(c);
-                                                        },
-                                                        _ => {},
-                                                    }
-                                                }
-                                            },
-                                        }
-
-                                        // if longest_common_pefix.clone().is_some_and(|x| x.len() > cmd.len()) {
-                                        //     let  new_input = &longest_common_pefix.unwrap()[cmd.len()..];
-                                        //     io::stdout().execute(Print(new_input)).unwrap();
-                                        //     input.push_str(new_input);
-                                        //     continue;
-                                        // }
-
-                                    }
-                                } else {
-                                    print_bell();
-                                }
-                            },
-                        }
-                    }
-                    _ => {}
+                match process_key_event(event, &mut input) {
+                    TermSignal::Exit => (self.on_exit)(),
+                    TermSignal::EndChar => {}, // continue loop
+                    TermSignal::EndLine => break,
                 }
             }
         }
@@ -120,6 +44,29 @@ impl<F: Fn()> Term<F> {
         terminal::disable_raw_mode().unwrap();
 
         input
+    }
+}
+
+fn process_key_event(event: KeyEvent, input: &mut String) -> TermSignal {
+    match event.code {
+        KeyCode::Char('c') if event.modifiers.contains(KeyModifiers::CONTROL) => TermSignal::Exit,
+        KeyCode::Char('j') if event.modifiers.contains(KeyModifiers::CONTROL) => {
+            print("\r\n");
+
+            TermSignal::EndLine
+        },
+        KeyCode::Char(c) => {
+            print_and_push(&String::from(c), input);
+
+            TermSignal::EndChar
+        },
+        KeyCode::Enter => {
+            print_and_push("\r\n", input);
+
+            TermSignal::EndLine
+        },
+        KeyCode::Tab => handle_tab(input),
+        _ => TermSignal::EndChar,
     }
 }
 
@@ -176,30 +123,92 @@ fn fill_remaining_command(
     print_and_push(&rest_str, target_string);
 }
 
-fn find_longest_common_fill<'a>(
-    commands: &'a [PathCmd],
-    prefix: &str
-) -> Option<&'a str> {
+fn find_longest_common_prefix(
+    commands: &[PathCmd],
+) -> Option<&str> {
     commands
         .iter()
-        .filter_map(|PathCmd {command, ..}| command.starts_with(prefix).then_some(command))
-        .fold(<Option<&str>>::None, |current_common_prefix, command| {
-            match current_common_prefix {
-                None => Some(command),
-                Some(current_common_prefix) => {
-                    let (longer, shorter) = match command.chars().count().cmp(&current_common_prefix.chars().count()) {
-                        cmp::Ordering::Less => (current_common_prefix, command.as_str()),
-                        cmp::Ordering::Equal | cmp::Ordering::Greater => (command.as_str(), current_common_prefix),
-                    };
+        .map(|PathCmd {command, ..}| command.as_str())
+        .reduce(|current_common_prefix, command| {
+            let (longer, shorter) = match command.chars().count().cmp(&current_common_prefix.chars().count()) {
+                cmp::Ordering::Less => (current_common_prefix, command),
+                cmp::Ordering::Equal | cmp::Ordering::Greater => (command, current_common_prefix),
+            };
 
-                    let i = longer
-                        .chars()
-                        .zip(shorter.chars())
-                        .take_while(|&(c_a, c_b)| c_a == c_b)
-                        .count();
+            let i = longer
+                .chars()
+                .zip(shorter.chars())
+                .take_while(|&(c_a, c_b)| c_a == c_b)
+                .count();
 
-                    Some(&shorter[..i])
-                }
-            }
+            &shorter[..i]
         })
+}
+
+fn handle_tab(input: &mut String) -> TermSignal {
+    match input.as_str() {
+        "ech" => {
+            io::stdout().execute(Print("o ")).unwrap();
+            input.push_str("o ");
+
+            TermSignal::EndChar
+        },
+        "exi" => {
+            io::stdout().execute(Print("t ")).unwrap();
+            input.push_str("t ");
+
+            TermSignal::EndChar
+        },
+        _ => process_autocomplete(input),
+    }
+}
+
+fn process_autocomplete(input: &mut String) -> TermSignal {
+    let path_commands = check_path_for_predicate(|x| x.starts_with(input.as_str()));
+
+    match path_commands.len() {
+        0 => { 
+            print_bell();
+            
+            TermSignal::EndChar
+        },
+        1 => {
+            let full_cmd = &path_commands[0].command;
+            fill_remaining_command(
+                full_cmd.strip_prefix(input.as_str()).unwrap(),
+                input,
+            );
+
+            TermSignal::EndChar
+        },
+        _ => {
+            match find_longest_common_prefix(&path_commands) {
+                Some(longest_common_prefix) if longest_common_prefix.len() > input.len() => {
+                    print_and_push(&longest_common_prefix[input.len()..], input);
+
+                    TermSignal::EndChar
+                },
+                None | Some(_) => {
+                    print_bell();
+
+                    match read().unwrap() {
+                        Event::Key(event) => match event.code {
+                            KeyCode::Tab => {
+                                let all_suggestions = path_commands
+                                    .into_iter()
+                                    .map(|e| e.command)
+                                    .collect::<Vec<_>>();
+                                let all_suggestions_string = all_suggestions.join("  ");
+                                print(format!("\r\n{all_suggestions_string}\r\n$ {input}"));
+
+                                TermSignal::EndChar
+                            },
+                            _ => process_key_event(event, input),
+                        },
+                        _ => TermSignal::EndChar,
+                    }
+                },
+            }
+        }
+    }
 }
