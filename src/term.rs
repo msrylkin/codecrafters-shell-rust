@@ -133,7 +133,7 @@ fn handle_tab(input: &mut String) -> TermSignal {
 }
 
 fn process_autocomplete(input: &mut String) -> TermSignal {
-    let path_commands = check_path_for_predicate(|x| x.starts_with(input.as_str()));
+    let path_commands = get_path_commands(|x| x.starts_with(input.as_str()));
 
     match path_commands.len() {
         0 => { 

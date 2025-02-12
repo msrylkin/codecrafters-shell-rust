@@ -72,7 +72,7 @@ fn type_cmd(cmd: &str) {
     if !cmd.is_empty() {
         match create_command(cmd.to_string(), &[]) {
             CommandType::Custom { cmd: _, args: _ } => { 
-                if let Some(dir) = check_path_for(cmd) {
+                if let Some(dir) = get_first_path_command(cmd) {
                     println!("{} is {}/{}", cmd, dir, cmd)
                 } else {
                     println!("{cmd}: not found");
