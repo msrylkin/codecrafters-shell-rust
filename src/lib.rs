@@ -6,14 +6,12 @@ use std::{env, fs::{File, OpenOptions}, io::{BufWriter, Read}, iter, os::{fd::Fr
 
 
 mod command;
-// mod lib;
 mod args;
 mod term;
 mod out;
 mod env_util;
 
 use command::*;
-// use lib::*;
 use args::*;
 use term::*;
 use out::*;

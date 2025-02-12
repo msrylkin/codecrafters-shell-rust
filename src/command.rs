@@ -1,7 +1,6 @@
-use std::fs;
 use std::process::{Command, Stdio};
 use std::{env, path::PathBuf};
-use std::io::{self, Write};
+use std::io::Write;
 
 use crate::env_util::*;
 
@@ -105,16 +104,4 @@ fn custom_cmd(cmd: &str, args: &[String], mut out: impl Write, mut err_out: impl
 
 pub fn exit(code: i32) {
     std::process::exit(code);
-}
-
-fn check_path_for(cmd: &str) -> Option<String> {
-    match env::var("PATH") {
-        Ok(path) => path
-            .split(':')
-            .find(|dir| {
-                !check_dir_for_cmd_predicate(dir, |x| x == cmd).is_empty()
-            })
-            .map(|dir| dir.to_string()),
-        Err(_) => None,
-    }
 }
