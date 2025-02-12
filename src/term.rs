@@ -34,7 +34,11 @@ impl<F: Fn()> Term<F> {
         loop {
             if let Event::Key(event) = read().unwrap() {
                 match process_key_event(event, &mut input) {
-                    TermSignal::Exit => (self.on_exit)(),
+                    TermSignal::Exit =>  {
+                        terminal::disable_raw_mode().unwrap();
+
+                        (self.on_exit)()
+                    },
                     TermSignal::EndChar => {}, // continue loop
                     TermSignal::EndLine => break,
                 }
