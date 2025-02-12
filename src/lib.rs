@@ -1,22 +1,55 @@
-use std::fs;
 
-pub fn check_dir_for_cmd_predicate<T: FnMut(&str) -> bool>(
-    dir: &str,
-    mut predicate: T
-) -> Vec<String> {
-    fs::read_dir(dir)
-        .ok()
-        .map(|read_dir| {
-            read_dir.filter_map(|dir_entry| {
-                dir_entry.ok().and_then(|ok_dir_entry| {
-                    ok_dir_entry
-                        .file_name()
-                        .to_str()
-                        .map(String::from)
-                        .filter(|str| predicate(str))
-                })
-            })
-            .collect()
-        })
-        .unwrap_or_default()
+
+use std::{fs, io::{self, Write}};
+use crossterm::{event::{self, read, Event, KeyCode, KeyEvent, KeyModifiers}, style::Print, terminal, ExecutableCommand};
+use std::{env, fs::{File, OpenOptions}, io::{BufWriter, Read}, iter, os::{fd::FromRawFd, unix::process::CommandExt}, path::{Path, PathBuf}, process::{self, Command, Stdio}};
+
+
+mod command;
+// mod lib;
+mod args;
+mod term;
+mod out;
+mod env_util;
+
+use command::*;
+// use lib::*;
+use args::*;
+use term::*;
+use out::*;
+
+pub fn run() {
+    loop {
+        print!("$ ");
+        io::stdout().flush().unwrap();
+
+        let input = Term::new(|| exit(0)).read();
+
+        let args_vec = ArgsParser::new(input).parse();
+        let mut args_vec_iter = args_vec.iter();
+        let command = args_vec_iter.next();
+        let command_args: Vec<String> = args_vec_iter.map(|x| x.to_string()).collect();
+
+        match command_args.split_last_chunk::<2>() {
+            Some((rest_args, [redir, redir_file])) => {
+                match get_pipes(&(redir, redir_file)) {
+                    Some(pipes) => {
+                        try_exec_command(command, rest_args, pipes.stdout_target, pipes.stderr_target);
+                    },
+                    None => {
+                        let pipes = get_default_pipes();
+
+                        try_exec_command(command, &command_args, pipes.stdout_target, pipes.stderr_target);
+                    }
+                };
+            },
+            None => {
+                let pipes: OutPipes = get_default_pipes();
+
+                try_exec_command(command, &command_args, pipes.stdout_target, pipes.stderr_target);
+            }
+        }
+    }
 }
+
+

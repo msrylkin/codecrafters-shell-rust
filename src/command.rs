@@ -3,7 +3,7 @@ use std::process::{Command, Stdio};
 use std::{env, path::PathBuf};
 use std::io::{self, Write};
 
-use crate::lib::*;
+use crate::env_util::*;
 
 pub enum CommandType {
     Echo { text: Vec<String> },

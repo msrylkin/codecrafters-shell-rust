@@ -2,7 +2,8 @@ use std::{cmp, collections::HashMap, env, fmt::Display, io};
 
 use crossterm::{event::{read, Event, KeyCode, KeyEvent, KeyModifiers}, style::Print, terminal};
 use crossterm::ExecutableCommand;
-use crate::lib::*;
+// use crate::lib::*;
+use crate::env_util::*;
 
 pub struct Term<F: Fn()> {
     on_exit: F,
