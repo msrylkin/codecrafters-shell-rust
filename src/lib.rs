@@ -1,9 +1,4 @@
-
-
-use std::{fs, io::{self, Write}};
-use crossterm::{event::{self, read, Event, KeyCode, KeyEvent, KeyModifiers}, style::Print, terminal, ExecutableCommand};
-use std::{env, fs::{File, OpenOptions}, io::{BufWriter, Read}, iter, os::{fd::FromRawFd, unix::process::CommandExt}, path::{Path, PathBuf}, process::{self, Command, Stdio}};
-
+use std::io::{self, Write};
 
 mod command;
 mod args;
