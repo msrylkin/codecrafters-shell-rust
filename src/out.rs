@@ -12,50 +12,7 @@ pub fn get_pipes(&(redir, redir_file): &(&str, &str)) -> Option<OutPipes> {
         "2>" => OutPipes { stdout_target: default_stdout(), stderr_target: build_file_pipe(redir_file) }.into(),
         "1>" | ">" => OutPipes { stdout_target: build_file_pipe(redir_file), stderr_target: default_stderr() }.into(),
         _ => None
-        // _ => OutPipes { stdout_target: default_stdout(), stderr_target: default_stderr() },
     }
-    // match maybe_redir_params.last_chunk::<2>() {
-    //     Some([redir, redir_file])  => {
-    //         match redir.as_str() {
-    //             "2>>" => try_exec_command(
-    //                 command,
-    //                 &command_args[..command_args.len() - 2],
-    //                 default_stdout(),
-    //                 build_append_file_pipe(redir_file),
-    //             ),
-    //             ">>" | "1>>" => try_exec_command(
-    //                 command,
-    //                 &command_args[..command_args.len() - 2],
-    //                 build_append_file_pipe(redir_file),
-    //                 default_stderr(),
-    //             ),
-    //             "2>" => try_exec_command(
-    //                 command,
-    //                 &command_args[..command_args.len() - 2],
-    //                 default_stdout(),
-    //                 build_file_pipe(redir_file),
-    //             ),
-    //             "1>" | ">" => try_exec_command(
-    //                 command,
-    //                 &command_args[..command_args.len() - 2],
-    //                 build_file_pipe(redir_file),
-    //                 default_stderr(),
-    //             ),
-    //             _ => try_exec_command(
-    //                 command,
-    //                 &command_args,
-    //                 default_stdout(),
-    //                 default_stderr(),
-    //             ),
-    //         }
-    //     },
-    //     None => try_exec_command(
-    //         command,
-    //         &command_args,
-    //         io::stdout(),
-    //         io::stderr(),
-    //     ),  
-    // };
 }
 
 pub fn get_default_pipes() -> OutPipes {
